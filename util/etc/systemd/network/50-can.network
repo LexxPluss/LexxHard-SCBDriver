@@ -1,0 +1,10 @@
+[Match]
+Name=can*
+
+[Link]
+RequiredForOnline=no
+
+[CAN]
+BitRate=1M
+SamplePoint=60%
+RestartSec=1ms
