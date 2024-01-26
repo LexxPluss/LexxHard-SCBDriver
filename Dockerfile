@@ -1,4 +1,4 @@
-# Copyright (c) 2023, LexxPluss Inc.
+# Copyright (c) 2024, LexxPluss Inc.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,7 @@
 
 FROM ros:noetic-ros-core-focal
 
-RUN apt-get update && apt-get install --no-install-recommends -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     can-utils \
     iproute2 \
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN rosdep init && \
-  rosdep update --rosdistro $ROS_DISTRO
+    rosdep update --rosdistro $ROS_DISTRO
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-noetic-ros-base=1.5.0-1* \
