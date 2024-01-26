@@ -1,0 +1,4 @@
+<launch>
+  <node name="sender"   pkg="scbdriver" type="sender"   output="screen" />
+  <node name="receiver" pkg="scbdriver" type="receiver" output="screen" />
+</launch>
