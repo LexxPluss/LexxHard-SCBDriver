@@ -36,12 +36,17 @@ void receiver_uss::handle(const can_frame &frame) const
 {
     if (frame.can_dlc != 8)
         return;
+    uint64_t work{0};
+    for (int i{0}; i < 8; ++i) {
+        work <<= 8;
+        work |= frame.data[i];
+    }
     std_msgs::Float64MultiArray msg;
     msg.data.resize(5);
-    msg.data[0] = ((frame.data[0] << 4) | (frame.data[1] >> 4)) * 2.0 * 1e-3;
-    msg.data[1] = ((frame.data[1] << 8) |  frame.data[2]      ) * 2.0 * 1e-3;
-    msg.data[2] = ((frame.data[3] << 4) | (frame.data[4] >> 4)) * 2.0 * 1e-3;
-    msg.data[3] = ((frame.data[4] << 8) |  frame.data[5]      ) * 2.0 * 1e-3;
-    msg.data[4] = ((frame.data[6] << 4) | (frame.data[7] >> 4)) * 2.0 * 1e-3;
+    msg.data[0] = ((work >> 52) & 0xfff) * 2.0 * 1e-3;
+    msg.data[1] = ((work >> 40) & 0xfff) * 2.0 * 1e-3;
+    msg.data[2] = ((work >> 28) & 0xfff) * 2.0 * 1e-3;
+    msg.data[3] = ((work >> 16) & 0xfff) * 2.0 * 1e-3;
+    msg.data[4] = ((work >>  4) & 0xfff) * 2.0 * 1e-3;
     pub.publish(msg);
 }
