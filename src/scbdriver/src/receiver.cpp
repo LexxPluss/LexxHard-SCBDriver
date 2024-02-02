@@ -98,7 +98,27 @@ int main(int argc, char *argv[])
             handler.handle(frame);
         }
     );
-    if (can.init() < 0) {
+    can_filter filter[]{
+        {0x100, CAN_SFF_MASK},
+        {0x101, CAN_SFF_MASK},
+        {0x103, CAN_SFF_MASK},
+        {0x110, CAN_SFF_MASK},
+        {0x111, CAN_SFF_MASK},
+        {0x112, CAN_SFF_MASK},
+        {0x113, CAN_SFF_MASK},
+        {0x120, CAN_SFF_MASK},
+        {0x130, CAN_SFF_MASK},
+        {0x200, CAN_SFF_MASK},
+        {0x201, CAN_SFF_MASK},
+        {0x202, CAN_SFF_MASK},
+        {0x204, CAN_SFF_MASK},
+        {0x206, CAN_SFF_MASK},
+        {0x207, CAN_SFF_MASK},
+        {0x209, CAN_SFF_MASK},
+        {0x20a, CAN_SFF_MASK},
+        {0x20c, CAN_SFF_MASK},
+    };
+    if (can.init(filter, sizeof filter) < 0) {
         std::cerr << "canif::init() failed" << std::endl;
         return -1;
     }

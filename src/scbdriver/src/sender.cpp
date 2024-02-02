@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
     ros::init(argc, argv, "sender");
     ros::NodeHandle n;
     canif can;
-    if (can.init() < 0) {
+    if (can.init(nullptr, 0) < 0) {
         std::cerr << "canif::init() failed" << std::endl;
         return -1;
     }

@@ -25,7 +25,6 @@
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
-#include <net/if.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <poll.h>
@@ -48,7 +47,7 @@ void canif::set_handler(std::function<void(const can_frame &frame)> handler)
     this->handler = handler;
 }
 
-int canif::init()
+int canif::init(const can_filter *filter, size_t nfilter)
 {
     sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (sock < 0) {
@@ -62,7 +61,7 @@ int canif::init()
         term();
         return -1;
     }
-    if (setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FILTER, nullptr, 0) < 0) {
+    if (setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FILTER, filter, nfilter) < 0) {
         std::cerr << "setsockopt(CAN_RAW_FILTER) failed" << std::endl;
         term();
         return -1;
