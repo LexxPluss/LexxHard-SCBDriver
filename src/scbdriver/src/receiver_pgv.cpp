@@ -34,7 +34,7 @@ receiver_pgv::receiver_pgv(ros::NodeHandle &n)
 
 void receiver_pgv::handle(const can_frame &frame)
 {
-    if (fill_buffer(frame)) {
+    if (fill_buffer(frame) && validate()) {
         scbdriver::PositionGuideVision msg;
         decode(msg);
         pub.publish(msg);
@@ -56,6 +56,14 @@ bool receiver_pgv::fill_buffer(const can_frame &frame)
         std::copy_n(frame.data, 7, buffer + 14);
     }
     return counter[0] == counter[1] && counter[1] == counter[2];
+}
+
+bool receiver_pgv::validate() const
+{
+    uint8_t check{buffer[0]};
+    for (int i{1}; i < 20; ++i)
+        check ^= buffer[i];
+    return check == buffer[20];
 }
 
 void receiver_pgv::decode(scbdriver::PositionGuideVision &msg) const

@@ -38,6 +38,7 @@ public:
     void handle(const can_frame &frame);
 private:
     bool fill_buffer(const can_frame &frame);
+    bool validate() const;
     void decode(scbdriver::PositionGuideVision &msg) const;
     ros::Publisher pub;
     std::string direction{"Straight Ahead"};
