@@ -23,3 +23,19 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # ROS node for SCB
+
+## Build for development
+
+```shell
+host$ docker compose run --rm rosbuild
+docker# cd /space
+docker# catkin_make
+```
+
+## Exec on IPC
+
+```shell
+host$ docker compose run --rm rosbuild
+docker# source devel/setup.bash
+docker# roslaunch scbdriver scbdriver.launch
+```
