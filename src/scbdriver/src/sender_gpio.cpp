@@ -23,29 +23,32 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
-#include "canif.hpp"
-#include "sender_actuator.hpp"
+#include <gpiod.hpp>
 #include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
 
-int main(int argc, char *argv[])
+sender_gpio::sender_gpio(ros::NodeHandle &n)
+    : sub_wheelmotor{n.subscribe("/gpio_control/wheelmotor", queue_size, &sender_gpio::handle_wheelmotor, this)},
+      sub_autocharge{n.subscribe("/gpio_control/autocharge", queue_size, &sender_gpio::handle_autocharge, this)}
 {
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
-    }
-    sender_actuator actuator{n, can};
-    sender_gpio gpio{n};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
+    gpiod::chip chip{"gpiochip1"};
+    line_wheelmotor = chip.get_line(0);
+    line_autocharge = chip.get_line(1);
+    line_wheelmotor.request({"sender_gpio", gpiod::line_request::DIRECTION_OUTPUT, 0});
+    line_autocharge.request({"sender_gpio", gpiod::line_request::DIRECTION_OUTPUT, 0});
+}
+
+sender_gpio::~sender_gpio()
+{
+    line_wheelmotor.release();
+    line_autocharge.release();
+}
+
+void sender_gpio::handle_wheelmotor(const std_msgs::Bool::ConstPtr &msg) const
+{
+    line_wheelmotor.set_value(msg->data);
+}
+
+void sender_gpio::handle_autocharge(const std_msgs::Bool::ConstPtr &msg) const
+{
+    line_autocharge.set_value(msg->data);
 }
