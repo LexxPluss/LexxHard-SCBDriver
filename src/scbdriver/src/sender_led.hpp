@@ -45,4 +45,5 @@ private:
                     uint8_t rgb[3]) const;
     ros::Subscriber sub;
     canif &can;
+    static constexpr uint32_t queue_size{10};
 };

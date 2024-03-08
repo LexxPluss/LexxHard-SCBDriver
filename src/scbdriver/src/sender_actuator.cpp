@@ -28,8 +28,8 @@
 #include "sender_actuator.hpp"
 
 sender_actuator::sender_actuator(ros::NodeHandle &n, canif &can)
-    : sub_actuator{n.subscribe("/body_control/linear_actuator", 10, &sender_actuator::handle, this)},
-      sub_encoder{n.subscribe("/body_control/encoder_count", 10, &sender_actuator::handle_encoder, this)},
+    : sub_actuator{n.subscribe("/body_control/linear_actuator", queue_size, &sender_actuator::handle, this)},
+      sub_encoder{n.subscribe("/body_control/encoder_count", queue_size, &sender_actuator::handle_encoder, this)},
       srv_actuator{n.advertiseService("/body_control/init_linear_actuator", &sender_actuator::handle_init, this)},
       can{can}
 {

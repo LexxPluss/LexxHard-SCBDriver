@@ -37,4 +37,5 @@ private:
     void handle(const std_msgs::UInt8::ConstPtr& msg) const;
     ros::Subscriber sub;
     canif &can;
+    static constexpr uint32_t queue_size{10};
 };

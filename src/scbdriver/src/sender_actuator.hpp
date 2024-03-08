@@ -46,4 +46,5 @@ private:
     canif &can;
     int32_t encoder[3]{0, 0, 0};
     bool in_service{false};
+    static constexpr uint32_t queue_size{10};
 };

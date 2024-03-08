@@ -28,7 +28,7 @@
 #include "sender_pgv.hpp"
 
 sender_pgv::sender_pgv(ros::NodeHandle &n, canif &can)
-    : sub{n.subscribe("/sensor_set/pgv_dir", 10, &sender_pgv::handle, this)},
+    : sub{n.subscribe("/sensor_set/pgv_dir", queue_size, &sender_pgv::handle, this)},
       can{can}
 {
 }

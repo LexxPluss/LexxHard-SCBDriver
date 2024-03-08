@@ -28,7 +28,7 @@
 #include "sender_led.hpp"
 
 sender_led::sender_led(ros::NodeHandle &n, canif &can)
-    : sub{n.subscribe("/body_control/led", 10, &sender_led::handle, this)},
+    : sub{n.subscribe("/body_control/led", queue_size, &sender_led::handle, this)},
       can{can}
 {
 }
