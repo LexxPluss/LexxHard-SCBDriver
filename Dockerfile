@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     can-utils \
     iproute2 \
+    libgpiod-dev \
+    libgpiod2 \
     python3-rosdep \
     python3-rosinstall \
     python3-vcstools \

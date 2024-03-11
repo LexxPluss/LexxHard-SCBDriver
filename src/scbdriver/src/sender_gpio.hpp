@@ -23,29 +23,20 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
-#include "canif.hpp"
-#include "sender_actuator.hpp"
-#include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
+#pragma once
 
-int main(int argc, char *argv[])
-{
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
-    }
-    sender_actuator actuator{n, can};
-    sender_gpio gpio{n};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
-}
+#include <gpiod.hpp>
+#include "ros/ros.h"
+#include "std_msgs/Bool.h"
+
+class sender_gpio {
+public:
+    sender_gpio(ros::NodeHandle &n);
+    ~sender_gpio();
+private:
+    void handle_wheelmotor(const std_msgs::Bool::ConstPtr& msg) const;
+    void handle_autocharge(const std_msgs::Bool::ConstPtr& msg) const;
+    ros::Subscriber sub_wheelmotor, sub_autocharge;
+    gpiod::line line_wheelmotor, line_autocharge;
+    static constexpr uint32_t queue_size{10};
+};
