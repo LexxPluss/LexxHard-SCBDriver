@@ -23,32 +23,48 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <gpiod.hpp>
+#include <gpiod.h>
 #include "sender_gpio.hpp"
 
 sender_gpio::sender_gpio(ros::NodeHandle &n)
     : sub_wheelmotor{n.subscribe("/gpio_control/wheelmotor", queue_size, &sender_gpio::handle_wheelmotor, this)},
       sub_autocharge{n.subscribe("/gpio_control/autocharge", queue_size, &sender_gpio::handle_autocharge, this)}
 {
-    gpiod::chip chip{"gpiochip1"};
-    line_wheelmotor = chip.get_line(0);
-    line_autocharge = chip.get_line(1);
-    line_wheelmotor.request({"sender_gpio", gpiod::line_request::DIRECTION_OUTPUT, 0});
-    line_autocharge.request({"sender_gpio", gpiod::line_request::DIRECTION_OUTPUT, 0});
+    chip = gpiod_chip_open_by_name("gpiochip1");
+    if (chip != nullptr) {
+        line_wheelmotor = gpiod_chip_get_line(chip, 0);
+        line_autocharge = gpiod_chip_get_line(chip, 1);
+    }
+    if (line_wheelmotor != nullptr)
+        gpiod_line_request_output(line_wheelmotor, "sender_gpio", 0);
+    if (line_autocharge != nullptr)
+        gpiod_line_request_output(line_autocharge, "sender_gpio", 0);
 }
 
 sender_gpio::~sender_gpio()
 {
-    line_wheelmotor.release();
-    line_autocharge.release();
+    if (line_wheelmotor != nullptr) {
+        gpiod_line_release(line_wheelmotor);
+        line_wheelmotor = nullptr;
+    }
+    if (line_autocharge != nullptr) {
+        gpiod_line_release(line_autocharge);
+        line_autocharge = nullptr;
+    }
+    if (chip != nullptr) {
+        gpiod_chip_close(chip);
+        chip = nullptr;
+    }
 }
 
 void sender_gpio::handle_wheelmotor(const std_msgs::Bool::ConstPtr &msg) const
 {
-    line_wheelmotor.set_value(msg->data);
+    if (line_wheelmotor != nullptr)
+        gpiod_line_set_value(line_wheelmotor, msg->data);
 }
 
 void sender_gpio::handle_autocharge(const std_msgs::Bool::ConstPtr &msg) const
 {
-    line_autocharge.set_value(msg->data);
+    if (line_autocharge != nullptr)
+        gpiod_line_set_value(line_autocharge, msg->data);
 }
