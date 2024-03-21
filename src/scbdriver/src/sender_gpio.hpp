@@ -25,9 +25,11 @@
 
 #pragma once
 
-#include <gpiod.hpp>
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
+
+class gpiod_chip;
+class gpiod_line;
 
 class sender_gpio {
 public:
@@ -37,6 +39,7 @@ private:
     void handle_wheelmotor(const std_msgs::Bool::ConstPtr& msg) const;
     void handle_autocharge(const std_msgs::Bool::ConstPtr& msg) const;
     ros::Subscriber sub_wheelmotor, sub_autocharge;
-    gpiod::line line_wheelmotor, line_autocharge;
+    gpiod_chip *chip{nullptr};
+    gpiod_line *line_wheelmotor{nullptr}, *line_autocharge{nullptr};
     static constexpr uint32_t queue_size{10};
 };
