@@ -28,7 +28,6 @@ add_compile_options(-std=c++17)
 
 find_package(PkgConfig)
 pkg_check_modules(libgpiod REQUIRED libgpiod)
-pkg_check_modules(libgpiodcxx REQUIRED libgpiodcxx)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -98,5 +97,4 @@ target_link_libraries(receiver
 target_link_libraries(sender
   ${catkin_LIBRARIES}
   ${libgpiod_LIBRARIES}
-  ${libgpiodcxx_LIBRARIES}
 )
