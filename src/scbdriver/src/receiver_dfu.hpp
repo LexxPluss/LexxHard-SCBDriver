@@ -23,31 +23,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
-#include "canif.hpp"
-#include "sender_actuator.hpp"
-#include "sender_dfu.hpp"
-#include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
+#pragma once
 
-int main(int argc, char *argv[])
-{
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
-    }
-    sender_actuator actuator{n, can};
-    sender_dfu dfu{n, can};
-    sender_gpio gpio{n};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
-}
+#include "ros/ros.h"
+
+struct can_frame;
+
+class receiver_dfu {
+public:
+    receiver_dfu(ros::NodeHandle &n);
+    void handle(const can_frame &frame);
+private:
+    ros::Publisher pub;
+    static constexpr uint32_t queue_size{10};
+};
