@@ -29,9 +29,9 @@
 #include "receiver_actuator.hpp"
 
 receiver_actuator::receiver_actuator(ros::NodeHandle &n)
-    : pub_encoder{n.advertise<std_msgs::Int32MultiArray>("/body_control/encoder_count", 10)},
-      pub_current{n.advertise<std_msgs::Float32MultiArray>("/body_control/linear_actuator_current", 10)},
-      pub_connection{n.advertise<std_msgs::Float32MultiArray>("/body_control/shelf_connection", 10)}
+    : pub_encoder{n.advertise<std_msgs::Int32MultiArray>("/body_control/encoder_count", queue_size)},
+      pub_current{n.advertise<std_msgs::Float32MultiArray>("/body_control/linear_actuator_current", queue_size)},
+      pub_connection{n.advertise<std_msgs::Float32MultiArray>("/body_control/shelf_connection", queue_size)}
 {
 }
 

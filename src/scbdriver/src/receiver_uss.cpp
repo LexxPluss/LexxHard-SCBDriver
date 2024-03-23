@@ -28,7 +28,7 @@
 #include "receiver_uss.hpp"
 
 receiver_uss::receiver_uss(ros::NodeHandle &n)
-    : pub{n.advertise<std_msgs::Float64MultiArray>("/sensor_set/ultrasonic", 10)}
+    : pub{n.advertise<std_msgs::Float64MultiArray>("/sensor_set/ultrasonic", queue_size)}
 {
 }
 

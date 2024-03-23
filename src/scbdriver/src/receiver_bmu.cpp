@@ -28,7 +28,7 @@
 #include "receiver_bmu.hpp"
 
 receiver_bmu::receiver_bmu(ros::NodeHandle &n)
-    : pub{n.advertise<scbdriver::Battery>("/sensor_set/battery", 10)}
+    : pub{n.advertise<scbdriver::Battery>("/sensor_set/battery", queue_size)}
 {
 }
 

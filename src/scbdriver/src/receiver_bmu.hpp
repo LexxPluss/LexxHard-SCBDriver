@@ -52,4 +52,5 @@ private:
         uint8_t mod_status1, mod_status2, bmu_status, asoc, rsoc, soh;
         uint8_t bmu_fw_ver, mod_fw_ver, serial_config, parallel_config, bmu_alarm1, bmu_alarm2;
     } bmudata;
+    static constexpr uint32_t queue_size{10};
 };

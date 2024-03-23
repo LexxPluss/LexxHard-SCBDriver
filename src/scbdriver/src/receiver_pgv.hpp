@@ -43,4 +43,5 @@ private:
     ros::Publisher pub;
     std::string direction{"Straight Ahead"};
     uint8_t counter[3]{255, 255, 255}, buffer[21];;
+    static constexpr uint32_t queue_size{10};
 };

@@ -35,4 +35,5 @@ public:
     void handle(const can_frame &frame) const;
 private:
     ros::Publisher pub;
+    static constexpr uint32_t queue_size{10};
 };

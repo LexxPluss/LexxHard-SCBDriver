@@ -27,7 +27,7 @@
 #include "receiver_imu.hpp"
 
 receiver_imu::receiver_imu(ros::NodeHandle &n)
-    : pub{n.advertise<scbdriver::Imu>("/sensor_set/imu", 10)}
+    : pub{n.advertise<scbdriver::Imu>("/sensor_set/imu", queue_size)}
 {
 }
 

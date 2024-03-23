@@ -43,4 +43,5 @@ private:
     ros::Publisher
         pub_bumper, pub_emergency, pub_charge,
         pub_power, pub_charge_delay, pub_charge_voltage;
+    static constexpr uint32_t queue_size{10};
 };

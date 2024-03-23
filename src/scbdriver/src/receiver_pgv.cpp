@@ -28,7 +28,7 @@
 #include "receiver_pgv.hpp"
 
 receiver_pgv::receiver_pgv(ros::NodeHandle &n)
-    : pub{n.advertise<scbdriver::PositionGuideVision>("/sensor_set/pgv", 10)}
+    : pub{n.advertise<scbdriver::PositionGuideVision>("/sensor_set/pgv", queue_size)}
 {
 }
 

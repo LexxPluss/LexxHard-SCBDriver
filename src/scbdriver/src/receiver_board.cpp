@@ -32,12 +32,12 @@
 #include "receiver_board.hpp"
 
 receiver_board::receiver_board(ros::NodeHandle &n)
-    : pub_bumper{n.advertise<std_msgs::ByteMultiArray>("/sensor_set/bumper", 10)},
-      pub_emergency{n.advertise<std_msgs::Bool>("/sensor_set/emergency_switch", 10)},
-      pub_charge{n.advertise<std_msgs::Byte>("/body_control/charge_status", 10)},
-      pub_power{n.advertise<std_msgs::Byte>("/body_control/power_state", 10)},
-      pub_charge_delay{n.advertise<std_msgs::UInt8>("/body_control/charge_heartbeat_delay", 10)},
-      pub_charge_voltage{n.advertise<std_msgs::Float32>("/body_control/charge_connector_voltage", 10)}
+    : pub_bumper{n.advertise<std_msgs::ByteMultiArray>("/sensor_set/bumper", queue_size)},
+      pub_emergency{n.advertise<std_msgs::Bool>("/sensor_set/emergency_switch", queue_size)},
+      pub_charge{n.advertise<std_msgs::Byte>("/body_control/charge_status", queue_size)},
+      pub_power{n.advertise<std_msgs::Byte>("/body_control/power_state", queue_size)},
+      pub_charge_delay{n.advertise<std_msgs::UInt8>("/body_control/charge_heartbeat_delay", queue_size)},
+      pub_charge_voltage{n.advertise<std_msgs::Float32>("/body_control/charge_connector_voltage", queue_size)}
 {
 }
 

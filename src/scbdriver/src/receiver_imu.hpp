@@ -40,4 +40,5 @@ private:
     ros::Publisher pub;
     int16_t accel[3], gyro[3];
     uint8_t counter[2]{255, 255};
+    static constexpr uint32_t queue_size{10};
 };
