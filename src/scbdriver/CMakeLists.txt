@@ -74,6 +74,7 @@ add_executable(
   src/receiver_actuator.cpp
   src/receiver_bmu.cpp
   src/receiver_board.cpp
+  src/receiver_dfu.cpp
   src/receiver_imu.cpp
   src/receiver_pgv.cpp
   src/receiver_uss.cpp
@@ -83,13 +84,19 @@ add_executable(
   src/canif.cpp
   src/sender.cpp
   src/sender_actuator.cpp
+  src/sender_dfu.cpp
   src/sender_gpio.cpp
   src/sender_led.cpp
   src/sender_pgv.cpp
 )
+add_executable(
+  updater
+  src/updater.cpp
+)
 
 add_dependencies(receiver ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(sender ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(updater ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(receiver
   ${catkin_LIBRARIES}
@@ -97,4 +104,7 @@ target_link_libraries(receiver
 target_link_libraries(sender
   ${catkin_LIBRARIES}
   ${libgpiod_LIBRARIES}
+)
+target_link_libraries(updater
+  ${catkin_LIBRARIES}
 )

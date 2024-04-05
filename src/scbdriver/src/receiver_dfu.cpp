@@ -23,31 +23,22 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
-#include "canif.hpp"
-#include "sender_actuator.hpp"
-#include "sender_dfu.hpp"
-#include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
+#include <linux/can.h>
+#include "std_msgs/UInt8MultiArray.h"
+#include "receiver_dfu.hpp"
 
-int main(int argc, char *argv[])
+receiver_dfu::receiver_dfu(ros::NodeHandle &n)
+    : pub{n.advertise<std_msgs::UInt8MultiArray>("/lexxhard/dfu_response", queue_size)}
 {
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
-    }
-    sender_actuator actuator{n, can};
-    sender_dfu dfu{n, can};
-    sender_gpio gpio{n};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
+}
+
+void receiver_dfu::handle(const can_frame &frame)
+{
+    static constexpr auto len{4};
+    if (frame.can_dlc != len)
+        return;
+    std_msgs::UInt8MultiArray msg;
+    msg.data.resize(len);
+    std::copy_n(std::begin(frame.data), len, std::begin(msg.data));
+    pub.publish(msg);
 }
