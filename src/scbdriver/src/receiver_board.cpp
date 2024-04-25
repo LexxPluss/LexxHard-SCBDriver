@@ -83,7 +83,7 @@ void receiver_board::publish_power(const can_frame &frame) const
 {
     std_msgs::Byte msg;
     msg.data = (frame.data[0] & 0b00001000) != 0 ? frame.data[2] : 0;
-    pub_charge.publish(msg);
+    pub_power.publish(msg);
 }
 
 void receiver_board::publish_charge_delay(const can_frame &frame) const

@@ -84,6 +84,7 @@ add_executable(
   src/canif.cpp
   src/sender.cpp
   src/sender_actuator.cpp
+  src/sender_board.cpp
   src/sender_dfu.cpp
   src/sender_gpio.cpp
   src/sender_led.cpp
