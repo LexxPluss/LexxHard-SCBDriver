@@ -36,50 +36,31 @@ sender_board::sender_board(ros::NodeHandle &n, canif &can)
 {
 }
 
-void sender_board::handle_ems(const std_msgs::Bool::ConstPtr &msg) const
+void sender_board::handle_ems(const std_msgs::Bool::ConstPtr &msg)
 {
-    can_frame frame {
-        .can_id{0x20F},
-        .can_dlc{4},
-        .data{0}
-    };
-
     frame.data[0] = msg->data;
     can.send(frame);
 }
 
-void sender_board::handle_power_off(const std_msgs::Bool::ConstPtr &msg) const
+void sender_board::handle_power_off(const std_msgs::Bool::ConstPtr &msg)
 {
-    can_frame frame {
-        .can_id{0x20F},
-        .can_dlc{4},
-        .data{0}
-    };
     frame.data[1] = msg->data;
     can.send(frame);
 }
 
-void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr &msg) const
+void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr &msg)
 {
-    can_frame frame {
-        .can_id{0x20F},
-        .can_dlc{4},
-        .data{0}
-    };
-
     if (msg->data == "wheel_poweroff") {
-        frame.data[2] = 1;
-        can.send(frame);
+        frame.data[2] = 1;   
+    } else {
+        frame.data[2] = 0;
     }
+
+    can.send(frame);
 }
 
-void sender_board::handle_heartbeat(const std_msgs::Bool::ConstPtr &msg) const
+void sender_board::handle_heartbeat(const std_msgs::Bool::ConstPtr &msg)
 {
-    can_frame frame {
-        .can_id{0x20F},
-        .can_dlc{4},
-        .data{0}
-    };
     frame.data[3] = msg->data;
     can.send(frame);
 }

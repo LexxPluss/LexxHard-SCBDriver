@@ -35,11 +35,16 @@ class sender_board {
 public:
     sender_board(ros::NodeHandle &n, canif &can);
 private:
-    void handle_ems(const std_msgs::Bool::ConstPtr& msg) const;
-    void handle_power_off(const std_msgs::Bool::ConstPtr& msg) const;
-    void handle_wheel_off(const std_msgs::String::ConstPtr& msg) const;
-    void handle_heartbeat(const std_msgs::Bool::ConstPtr& msg) const;
+    void handle_ems(const std_msgs::Bool::ConstPtr& msg);
+    void handle_power_off(const std_msgs::Bool::ConstPtr& msg);
+    void handle_wheel_off(const std_msgs::String::ConstPtr& msg);
+    void handle_heartbeat(const std_msgs::Bool::ConstPtr& msg);
     ros::Subscriber sub_ems, sub_power_off, sub_wheel_off, sub_heartbeat;
     canif &can;
     static constexpr uint32_t queue_size{10};
+    can_frame frame {
+        .can_id{0x20F},
+        .can_dlc{4},
+        .data{0}
+    };
 };
