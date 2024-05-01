@@ -36,6 +36,7 @@ docker# catkin_make
 
 ```shell
 host$ docker compose run --rm rosbuild
+docker# cd /space
 docker# source devel/setup.bash
 docker# roslaunch scbdriver scbdriver.launch
 ```

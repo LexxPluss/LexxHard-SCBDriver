@@ -23,33 +23,44 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
+#include <linux/can.h>
 #include "canif.hpp"
-#include "sender_actuator.hpp"
 #include "sender_board.hpp"
-#include "sender_dfu.hpp"
-#include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
 
-int main(int argc, char *argv[])
+sender_board::sender_board(ros::NodeHandle &n, canif &can)
+    : sub_ems{n.subscribe("/control/request_emergency_stop", queue_size, &sender_board::handle_ems, this)},
+      sub_power_off{n.subscribe("/control/request_power_off", queue_size, &sender_board::handle_power_off, this)},
+      sub_wheel_off{n.subscribe("/lexxhard/setup", queue_size, &sender_board::handle_wheel_off, this)},
+      sub_heartbeat{n.subscribe("/lexxhard/mainboard_messenger_heartbeat", queue_size, &sender_board::handle_heartbeat, this)},
+      can{can}
 {
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
+}
+
+void sender_board::handle_ems(const std_msgs::Bool::ConstPtr &msg)
+{
+    frame.data[0] = msg->data;
+    can.send(frame);
+}
+
+void sender_board::handle_power_off(const std_msgs::Bool::ConstPtr &msg)
+{
+    frame.data[1] = msg->data;
+    can.send(frame);
+}
+
+void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr &msg)
+{
+    if (msg->data == "wheel_poweroff") {
+        frame.data[2] = 1;   
+    } else {
+        frame.data[2] = 0;
     }
-    sender_actuator actuator{n, can};
-    sender_board board{n, can};
-    sender_dfu dfu{n, can};
-    sender_gpio gpio{n};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
+
+    can.send(frame);
+}
+
+void sender_board::handle_heartbeat(const std_msgs::Bool::ConstPtr &msg)
+{
+    frame.data[3] = msg->data;
+    can.send(frame);
 }
