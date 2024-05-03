@@ -43,6 +43,6 @@ public:
     int send(const can_frame &frame) const;
 private:
     std::function<void(const can_frame &frame)> handler{nullptr};
-    std::string ifname{"can0"};
+    std::string ifname{"can1"};
     int sock{-1};
 };
