@@ -27,6 +27,7 @@
 ## Build for development
 
 ```shell
+host$ cd util/workspace
 host$ docker compose run --rm rosbuild
 docker# cd /space
 docker# catkin_make
@@ -35,6 +36,7 @@ docker# catkin_make
 ## Exec on IPC
 
 ```shell
+host$ cd util/workspace
 host$ docker compose run --rm rosbuild
 docker# cd /space
 docker# source devel/setup.bash
