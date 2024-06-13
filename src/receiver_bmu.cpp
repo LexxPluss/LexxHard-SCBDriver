@@ -95,11 +95,11 @@ void receiver_bmu::decode(scbdriver::Battery &msg) const
     msg.state.temperature = bmudata.fet_temp * 1e-2f;
     msg.state.current = bmudata.pack_current * 1e-2f;
     //msg.state.charge = bmudata.remain_capacity * 1e-2f;
-    msg.state.charge = 99 * 1e-2f;  // for workaround
+    msg.state.charge = 99 * 1e-2f;  // TODO: for workaround
     msg.state.capacity = bmudata.full_charge_capacity * 1e-2f;
-    msg.state.design_capacity = bmudata.design_capacity * 1e-2f;
+    msg.state.design_capacity = bmudata.design_apacity * 1e-2f;
     //msg.state.percentage = bmudata.rsoc * 1e-2f;
-    msg.state.percentage = 99 * 1e-2f;  // for workaround
+    msg.state.percentage = 99 * 1e-2f;  // TODO: for workaround
     msg.state.power_supply_status =
         (bmudata.mod_status1 & 0b01000000) != 0 ? sensor_msgs::BatteryState::POWER_SUPPLY_STATUS_FULL
                      : msg.state.current > 0.0f ? sensor_msgs::BatteryState::POWER_SUPPLY_STATUS_CHARGING
