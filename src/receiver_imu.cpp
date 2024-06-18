@@ -62,11 +62,12 @@ bool receiver_imu::fill_buffer(const can_frame &frame)
 void receiver_imu::decode(scbdriver::Imu &msg) const
 {
     msg.accel.x = accel[0] * 1e-3f;
-    msg.accel.y = accel[1] * 1e-3f;
+    msg.accel.y = accel[1] * - 1e-3f;
     msg.accel.z = accel[2] * 1e-3f;
-    msg.gyro.x = gyro[0] * 1e-3f;
-    msg.gyro.y = gyro[1] * 1e-3f;
-    msg.gyro.z = gyro[2] * 1e-3f;
+    // TODO: Need to refactor
+    msg.gyro.x = gyro[0] / 32.8 * M_PI / 180.0;
+    msg.gyro.y = gyro[1] / 32.8 * M_PI / 180.0;
+    msg.gyro.z = gyro[2] / 32.8 * M_PI / 180.0;
     msg.ang.x =
     msg.ang.y =
     msg.ang.z =

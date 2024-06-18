@@ -56,6 +56,7 @@ void sender_led::decode(const std::string &data,
                         uint16_t &count_per_minutes,
                         uint8_t rgb[3]) const
 {
+    // The following patterns are fixed
     if      (data == "emergency_stop")  pattern = 1;
     else if (data == "amr_mode")        pattern = 2;
     else if (data == "agv_mode")        pattern = 3;
@@ -71,10 +72,16 @@ void sender_led::decode(const std::string &data,
     else if (data == "charge_level")    pattern = 16;
     else if (data == "showtime")        pattern = 100;
     else if (data == "lockdown")        pattern = 101;
+    // And if not, we are receiving a string in the following format:
+    // "<hex color> <pattern> <blink count per min>"
     else if (data[0] == '#')            decode_rgb(data, pattern, count_per_minutes, rgb);
     else std::cerr << "sender_led::handle(): unknown pattern: " << data << std::endl;
 }
 
+// For an explanation of how to send data to this function, refer here:
+// https://github.com/LexxPluss/LexxAuto/pull/3275#issuecomment-2137190256
+// or here:
+// https://www.notion.so/lexxpluss/LED-Pattern-5e52eb3c0c3f41fbb84d6465c4d154cc
 void sender_led::decode_rgb(const std::string &data,
                             uint8_t &pattern,
                             uint16_t &count_per_minutes,

@@ -27,5 +27,6 @@ services:
     build: .
     volumes:
       - ./:/space
+      - ../../:/space/src/scbdriver
     network_mode: host
     privileged: true
