@@ -97,7 +97,7 @@ void receiver_bmu::decode(scbdriver::Battery &msg) const
     //msg.state.charge = bmudata.remain_capacity * 1e-2f;
     msg.state.charge = 99 * 1e-2f;  // TODO: for workaround
     msg.state.capacity = bmudata.full_charge_capacity * 1e-2f;
-    msg.state.design_capacity = bmudata.design_apacity * 1e-2f;
+    msg.state.design_capacity = bmudata.design_capacity * 1e-2f;
     //msg.state.percentage = bmudata.rsoc * 1e-2f;
     msg.state.percentage = 99 * 1e-2f;  // TODO: for workaround
     msg.state.power_supply_status =
