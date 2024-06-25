@@ -118,7 +118,7 @@ void receiver_pgv::decode(scbdriver::PositionGuideVision &msg) const
         msg.control_code1_detected = cc1;
         msg.control_code2_detected = cc2;
     }
-    int32_t yps{
+    int16_t yps{
         (buffer[6] & 0x40 ? 0xc000 : 0) |
         ((buffer[6] & 0x7f) << 7) |
         (buffer[7] & 0x7f)
