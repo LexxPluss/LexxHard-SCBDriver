@@ -71,7 +71,7 @@ void receiver_board::publish_emergency(const can_frame &frame) const
 
 void receiver_board::publish_charge(const can_frame &frame) const
 {
-    static constexpr uint8_t MANUAL_CHARGE_STATE{6}, AUTO_CHARGE_STATE{5};
+    static constexpr uint8_t MANUAL_CHARGE_STATE{2}, AUTO_CHARGE_STATE{1};
     std_msgs::Byte msg;
     msg.data = frame.data[1] == MANUAL_CHARGE_STATE ? 2
              : frame.data[1] == AUTO_CHARGE_STATE   ? 1
