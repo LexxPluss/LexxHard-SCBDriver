@@ -17,7 +17,7 @@ jobs:
       run: |
         find . -name ‘*.h’ -or -name ‘*.hpp’ -or -name ‘*.cpp’ | xargs clang-format -i --style=file
         git diff --exit-code
-  build_and_test:
+  build:
     needs: lint
     runs-on: ubuntu-20.04
     steps:
