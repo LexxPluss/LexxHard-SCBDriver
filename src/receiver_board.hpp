@@ -35,13 +35,14 @@ public:
     void handle(const can_frame &frame) const;
 private:
     void publish_bumper(const can_frame &frame) const;
-    void publish_emergency(const can_frame &frame) const;
+    void publish_emergency_switch(const can_frame &frame) const;
+    void publish_emergency_stop(const can_frame &frame) const;
     void publish_charge(const can_frame &frame) const;
     void publish_power(const can_frame &frame) const;
     void publish_charge_delay(const can_frame &frame) const;
     void publish_charge_voltage(const can_frame &frame) const;
     ros::Publisher
-        pub_bumper, pub_emergency, pub_charge,
-        pub_power, pub_charge_delay, pub_charge_voltage;
+        pub_bumper, pub_emergency_switch, pub_emergency_stop,
+        pub_charge, pub_power, pub_charge_delay, pub_charge_voltage;
     static constexpr uint32_t queue_size{10};
 };
