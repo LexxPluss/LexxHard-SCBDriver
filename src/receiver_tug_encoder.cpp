@@ -40,6 +40,6 @@ void receiver_tug_encoder::handle(const can_frame &frame) const
     uint16_t const enc_value = static_cast<uint16_t>(frame.data[0]) << 8 | frame.data[1];
 
     std_msgs::Float32 msg;
-    msg.data = env_value * 360.0f / 4096.0f;
+    msg.data = enc_value;
     pub.publish(msg);
 }
