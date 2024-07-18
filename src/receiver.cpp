@@ -41,7 +41,7 @@ namespace {
 class handler {
 public:
     handler(ros::NodeHandle &n)
-        : actuator{n}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n} {} 
+        : actuator{n}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n}, tug_encoder{n} {}
     void handle(const can_frame &frame) {
         switch (frame.can_id) {
         case 0x100:

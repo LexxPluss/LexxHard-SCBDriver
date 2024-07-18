@@ -34,7 +34,7 @@ receiver_tug_encoder::receiver_tug_encoder(ros::NodeHandle &n)
 
 void receiver_tug_encoder::handle(const can_frame &frame) const
 {
-    if (frame.can_dlc != 8)
+    if (frame.can_dlc != 2)
         return;
 
     uint16_t const enc_value = static_cast<uint16_t>(frame.data[0]) << 8 | frame.data[1];
