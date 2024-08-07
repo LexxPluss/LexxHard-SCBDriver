@@ -23,33 +23,32 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
+#include <linux/can.h>
 #include "canif.hpp"
-#include "sender_actuator.hpp"
-#include "sender_board.hpp"
-#include "sender_dfu.hpp"
 #include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
 
-int main(int argc, char *argv[])
-{
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
+namespace {
+    uint8_t set_out_port_status(const uint8_t status, const uint8_t port, const bool value)
+    {
+        const uint8_t bit_pos = 7 - port;
+        return (status & ~(1 << bit_pos)) | (value << bit_pos);
     }
-    sender_actuator actuator{n, can};
-    sender_board board{n, can};
-    sender_dfu dfu{n, can};
-    sender_gpio gpio{n, can};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
+}
+
+sender_gpio::sender_gpio(ros::NodeHandle &n, canif &can)
+    : subs{{
+        n.subscribe("gpio/out_port0", queue_size, &sender_gpio::handle<0>, this),
+        n.subscribe("gpio/out_port1", queue_size, &sender_gpio::handle<1>, this),
+        n.subscribe("gpio/out_port2", queue_size, &sender_gpio::handle<2>, this),
+        n.subscribe("gpio/out_port3", queue_size, &sender_gpio::handle<3>, this),
+      }},
+      can{can}
+{
+}
+
+template<uint8_t N>
+void sender_gpio::handle(const std_msgs::Bool::ConstPtr& msg)
+{
+    frame.data[0] = set_out_port_status(frame.data[0], N, msg->data);
+    can.send(frame);
 }

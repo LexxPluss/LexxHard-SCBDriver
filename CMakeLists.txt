@@ -78,6 +78,7 @@ add_executable(
   src/receiver_imu.cpp
   src/receiver_pgv.cpp
   src/receiver_uss.cpp
+  src/receiver_gpio.cpp
 )
 add_executable(
   sender

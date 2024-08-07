@@ -23,33 +23,41 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
-#include "canif.hpp"
-#include "sender_actuator.hpp"
-#include "sender_board.hpp"
-#include "sender_dfu.hpp"
-#include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
+#include <linux/can.h>
+#include "std_msgs/Bool.h"
+#include "receiver_gpio.hpp"
 
-int main(int argc, char *argv[])
-{
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
+namespace {
+    bool get_in_port_status(const can_frame &frame,const uint8_t port)
+    {
+        const uint8_t bit_pos = 7 - port;
+        return frame.data[0] & (1 << bit_pos);
     }
-    sender_actuator actuator{n, can};
-    sender_board board{n, can};
-    sender_dfu dfu{n, can};
-    sender_gpio gpio{n, can};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
+}
+
+
+receiver_gpio::receiver_gpio(ros::NodeHandle &n)
+    : pubs{{
+        n.advertise<std_msgs::Bool>("gpio/in_port0", queue_size),
+        n.advertise<std_msgs::Bool>("gpio/in_port1", queue_size),
+        n.advertise<std_msgs::Bool>("gpio/in_port2", queue_size),
+        n.advertise<std_msgs::Bool>("gpio/in_port3", queue_size),
+    }}
+{
+}
+
+void receiver_gpio::handle(const can_frame &frame) const
+{
+    if (frame.can_id != 0x212) {
+        return;
+    }
+    if (frame.can_dlc != 1) {
+        return;
+    }
+
+    for(size_t i = 0; i < 4; ++i) {
+        std_msgs::Bool msg;
+        msg.data = get_in_port_status(frame, i);
+        pubs[i].publish(msg);
+    }
 }

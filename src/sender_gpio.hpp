@@ -23,33 +23,26 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-#include "ros/ros.h"
-#include "canif.hpp"
-#include "sender_actuator.hpp"
-#include "sender_board.hpp"
-#include "sender_dfu.hpp"
-#include "sender_gpio.hpp"
-#include "sender_led.hpp"
-#include "sender_pgv.hpp"
+#pragma once
 
-int main(int argc, char *argv[])
-{
-    ros::init(argc, argv, "sender");
-    ros::NodeHandle n;
-    canif can;
-    if (can.init(nullptr, 0) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
-    }
-    sender_actuator actuator{n, can};
-    sender_board board{n, can};
-    sender_dfu dfu{n, can};
-    sender_gpio gpio{n, can};
-    sender_led led{n, can};
-    sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
-    spinner.spin();
-    can.term();
-    return 0;
-}
+#include<array>
+
+#include "ros/ros.h"
+#include "std_msgs/Bool.h"
+
+class canif;
+
+class sender_gpio {
+public:
+    sender_gpio(ros::NodeHandle &n, canif &can);
+private:
+    template<uint8_t N>
+    void handle(const std_msgs::Bool::ConstPtr& msg);
+    std::array<ros::Subscriber, 4> subs;
+    can_frame frame{
+        .can_id{0x211},
+        .can_dlc{1},
+    };
+    canif &can;
+    static constexpr uint32_t queue_size{10};
+};
