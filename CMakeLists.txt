@@ -79,6 +79,7 @@ add_executable(
   src/receiver_pgv.cpp
   src/receiver_uss.cpp
   src/receiver_gpio.cpp
+  src/receiver_tug_encoder.cpp
 )
 add_executable(
   sender

@@ -35,13 +35,14 @@
 #include "receiver_pgv.hpp"
 #include "receiver_uss.hpp"
 #include "receiver_gpio.hpp"
+#include "receiver_tug_encoder.hpp"
 
 namespace {
 
 class handler {
 public:
     handler(ros::NodeHandle &n)
-        : actuator{n}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n}, gpio{n} {}
+        : actuator{n}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n}, gpio{n}, tug_encoder{n} {}
     void handle(const can_frame &frame) {
         switch (frame.can_id) {
         case 0x100:
@@ -77,6 +78,9 @@ public:
         case 0x20e:
             dfu.handle(frame);
             break;
+        case 0x210:
+            tug_encoder.handle(frame);
+            break;
         case 0x212:
             gpio.handle(frame);
             break;
@@ -93,6 +97,7 @@ private:
     receiver_pgv pgv;
     receiver_uss uss;
     receiver_gpio gpio;
+    receiver_tug_encoder tug_encoder;
 };
 
 }
@@ -128,6 +133,7 @@ int main(int argc, char *argv[])
         {0x20a, CAN_SFF_MASK},
         {0x20c, CAN_SFF_MASK},
         {0x20e, CAN_SFF_MASK},
+        {0x210, CAN_SFF_MASK},
         {0x212, CAN_SFF_MASK},
     };
     if (can.init(filter, sizeof filter) < 0) {
