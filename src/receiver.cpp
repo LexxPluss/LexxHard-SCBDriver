@@ -34,13 +34,14 @@
 #include "receiver_imu.hpp"
 #include "receiver_pgv.hpp"
 #include "receiver_uss.hpp"
+#include "receiver_tug_encoder.hpp"
 
 namespace {
 
 class handler {
 public:
     handler(ros::NodeHandle &n)
-        : actuator{n}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n} {} 
+        : actuator{n}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n}, tug_encoder{n} {}
     void handle(const can_frame &frame) {
         switch (frame.can_id) {
         case 0x100:
@@ -76,6 +77,9 @@ public:
         case 0x20e:
             dfu.handle(frame);
             break;
+        case 0x210:
+            tug_encoder.handle(frame);
+            break;
         default:
             break;
         }
@@ -88,6 +92,7 @@ private:
     receiver_imu imu;
     receiver_pgv pgv;
     receiver_uss uss;
+    receiver_tug_encoder tug_encoder;
 };
 
 }
@@ -123,6 +128,7 @@ int main(int argc, char *argv[])
         {0x20a, CAN_SFF_MASK},
         {0x20c, CAN_SFF_MASK},
         {0x20e, CAN_SFF_MASK},
+        {0x210, CAN_SFF_MASK},
     };
     if (can.init(filter, sizeof filter) < 0) {
         std::cerr << "canif::init() failed" << std::endl;
