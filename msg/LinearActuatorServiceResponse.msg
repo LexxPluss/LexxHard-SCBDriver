@@ -23,5 +23,5 @@
 
 uint8 mode
 bool success
-uint8[] details
+uint8[] detail
 uint8 counter

@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
     sender_gpio gpio{n, can};
     sender_led led{n, can};
     sender_pgv pgv{n, can};
-    ros::MultiThreadedSpinner spinner{2};
+    ros::MultiThreadedSpinner spinner{3};
     spinner.spin();
     can.term();
     return 0;

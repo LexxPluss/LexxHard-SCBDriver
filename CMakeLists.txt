@@ -51,6 +51,7 @@ add_message_files(
 add_service_files(
   FILES
   InitLinearActuator.srv
+  LinearActuatorLocation.srv
 )
 
 generate_messages(

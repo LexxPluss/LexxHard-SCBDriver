@@ -1,0 +1,5 @@
+std_msgs/UInt8MultiArray location
+std_msgs/UInt8MultiArray power
+---
+bool success
+std_msgs/UInt8MultiArray detail

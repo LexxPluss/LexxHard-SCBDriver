@@ -95,10 +95,10 @@ void receiver_actuator::handle_service_response(const can_frame &frame) const
     scbdriver::LinearActuatorServiceResponse msg;
     msg.mode = frame.data[0];
     msg.success = frame.data[1] == 0;
-    msg.details.resize(3);
-    msg.details[0] = frame.data[2];
-    msg.details[1] = frame.data[3];
-    msg.details[2] = frame.data[4];
+    msg.detail.resize(3);
+    msg.detail[0] = frame.data[2];
+    msg.detail[1] = frame.data[3];
+    msg.detail[2] = frame.data[4];
     msg.counter = frame.data[7];
 
     pub_src_resp.publish(msg);
