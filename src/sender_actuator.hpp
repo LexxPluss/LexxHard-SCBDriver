@@ -67,7 +67,6 @@ private:
     };
 
     void handle(const scbdriver::LinearActuatorControlArray::ConstPtr& msg);
-    void handle_encoder(const std_msgs::Int32MultiArray::ConstPtr& msg);
     void handle_srv_resp(const scbdriver::LinearActuatorServiceResponse::ConstPtr& msg);
     bool handle_init(
         scbdriver::InitLinearActuator::Request& req,
@@ -79,12 +78,10 @@ private:
         std::unique_lock<std::mutex>& lock,
         uint8_t counter);
     ros::Subscriber sub_actuator;
-    ros::Subscriber sub_encoder;
     ros::Subscriber sub_srv_resp;
     ros::ServiceServer srv_init;
     ros::ServiceServer srv_location;
     canif &can;
-    int32_t encoder[3]{0, 0, 0};
     std::mutex actuator_control_mtx;
     std::condition_variable service_resp_cv;
     service_response_message_store  resp_msg_store;

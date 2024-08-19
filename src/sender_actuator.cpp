@@ -36,7 +36,6 @@
 
 sender_actuator::sender_actuator(ros::NodeHandle &n, canif &can)
     : sub_actuator{n.subscribe("/body_control/linear_actuator", queue_size, &sender_actuator::handle, this)},
-      sub_encoder{n.subscribe("/body_control/encoder_count", queue_size, &sender_actuator::handle_encoder, this)},
       sub_srv_resp{n.subscribe("/body_control/linear_actuator_service_response", queue_size, &sender_actuator::handle_srv_resp, this)},
       srv_init{n.advertiseService("/body_control/init_linear_actuator", &sender_actuator::handle_init, this)},
       srv_location{n.advertiseService("/body_control/linear_actuator_location", &sender_actuator::handle_location, this)},
@@ -63,13 +62,6 @@ void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstP
     frame.data[4] = msg->actuators[0].power;
     frame.data[5] = msg->actuators[2].power;
     can.send(frame);
-}
-
-void sender_actuator::handle_encoder(const std_msgs::Int32MultiArray::ConstPtr& msg)
-{
-    encoder[0] = msg->data[1];
-    encoder[1] = msg->data[0];
-    encoder[2] = msg->data[2];
 }
 
 void sender_actuator::handle_srv_resp(const scbdriver::LinearActuatorServiceResponse::ConstPtr& msg)
