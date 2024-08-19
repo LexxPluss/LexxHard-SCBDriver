@@ -26,49 +26,80 @@
 #include <linux/can.h>
 #include "std_msgs/Float32MultiArray.h"
 #include "std_msgs/Int32MultiArray.h"
+#include "scbdriver/LinearActuatorServiceResponse.h"
 #include "receiver_actuator.hpp"
 
 receiver_actuator::receiver_actuator(ros::NodeHandle &n)
     : pub_encoder{n.advertise<std_msgs::Int32MultiArray>("/body_control/encoder_count", queue_size)},
       pub_current{n.advertise<std_msgs::Float32MultiArray>("/body_control/linear_actuator_current", queue_size)},
-      pub_connection{n.advertise<std_msgs::Float32MultiArray>("/body_control/shelf_connection", queue_size)}
+      pub_connection{n.advertise<std_msgs::Float32MultiArray>("/body_control/shelf_connection", queue_size)},
+      pub_src_resp{n.advertise<scbdriver::LinearActuatorServiceResponse>("/body_control/linear_actuator_service_response", queue_size)}
 {
 }
 
 void receiver_actuator::handle(const can_frame &frame) const
 {
     if (frame.can_id == 0x209) {
-        if (frame.can_dlc != 6)
-            return;
-        // ROS:[center,left,right], ROBOT:[left,center,right]
-        int16_t
-            L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
-            C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
-            R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
-        std_msgs::Int32MultiArray msg;
-        msg.data.resize(3);
-        msg.data[0] = C;
-        msg.data[1] = L;
-        msg.data[2] = R;
-        pub_encoder.publish(msg);
+        handle_encoder_count(frame);
     } else if (frame.can_id == 0x20a) {
-        if (frame.can_dlc != 8)
-            return;
-        // ROS:[center,left,right], ROBOT:[left,center,right]
-        int16_t
-            L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
-            C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
-            R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
-        std_msgs::Float32MultiArray msg_current;
-        msg_current.data.resize(3);
-        msg_current.data[0] = C * 1e-3f;
-        msg_current.data[1] = L * 1e-3f;
-        msg_current.data[2] = R * 1e-3f;
-        pub_current.publish(msg_current);
-        int16_t con{static_cast<int16_t>((frame.data[6] << 8) | frame.data[7])};
-        std_msgs::Float32MultiArray msg_connection;
-        msg_connection.data.resize(1);
-        msg_connection.data[0] = con * 1e-3f;
-        pub_connection.publish(msg_connection);
+        handle_current(frame);
+    } else if (frame.can_id == 0x20b) {
+        handle_service_response(frame);
     }
+}
+
+void receiver_actuator::handle_encoder_count(const can_frame &frame) const
+{
+    if (frame.can_dlc != 6)
+        return;
+    // ROS:[center,left,right], ROBOT:[left,center,right]
+    int16_t
+        L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
+        C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
+        R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
+    std_msgs::Int32MultiArray msg;
+    msg.data.resize(3);
+    msg.data[0] = C;
+    msg.data[1] = L;
+    msg.data[2] = R;
+    pub_encoder.publish(msg);
+}
+
+void receiver_actuator::handle_current(const can_frame &frame) const
+{
+    if (frame.can_dlc != 8)
+        return;
+    // ROS:[center,left,right], ROBOT:[left,center,right]
+    int16_t
+        L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
+        C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
+        R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
+    std_msgs::Float32MultiArray msg_current;
+    msg_current.data.resize(3);
+    msg_current.data[0] = C * 1e-3f;
+    msg_current.data[1] = L * 1e-3f;
+    msg_current.data[2] = R * 1e-3f;
+    pub_current.publish(msg_current);
+    int16_t con{static_cast<int16_t>((frame.data[6] << 8) | frame.data[7])};
+    std_msgs::Float32MultiArray msg_connection;
+    msg_connection.data.resize(1);
+    msg_connection.data[0] = con * 1e-3f;
+    pub_connection.publish(msg_connection);
+}
+
+void receiver_actuator::handle_service_response(const can_frame &frame) const
+{
+    if (frame.can_dlc != 8)
+        return;
+
+    scbdriver::LinearActuatorServiceResponse msg;
+    msg.mode = frame.data[0];
+    msg.success = frame.data[1] == 0;
+    msg.details.resize(3);
+    msg.details[0] = frame.data[2];
+    msg.details[1] = frame.data[3];
+    msg.details[2] = frame.data[4];
+    msg.counter = frame.data[7];
+
+    pub_src_resp.publish(msg);
 }

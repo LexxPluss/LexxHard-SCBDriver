@@ -34,6 +34,13 @@ public:
     receiver_actuator(ros::NodeHandle &n);
     void handle(const can_frame &frame) const;
 private:
-    ros::Publisher pub_encoder, pub_current, pub_connection;
+    ros::Publisher pub_encoder;
+    ros::Publisher pub_current;
+    ros::Publisher pub_connection;
+    ros::Publisher pub_src_resp;
     static constexpr uint32_t queue_size{10};
+
+    void handle_encoder_count(const can_frame &frame) const;
+    void handle_current(const can_frame &frame) const;
+    void handle_service_response(const can_frame &frame) const;
 };

@@ -44,6 +44,7 @@ add_message_files(
   Led.msg
   LinearActuatorControl.msg
   LinearActuatorControlArray.msg
+  LinearActuatorServiceResponse.msg
   PositionGuideVision.msg
 )
 
