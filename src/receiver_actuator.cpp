@@ -43,7 +43,7 @@ void receiver_actuator::handle(const can_frame &frame) const
         handle_encoder_count(frame);
     } else if (frame.can_id == 0x20a) {
         handle_current(frame);
-    } else if (frame.can_id == 0x20b) {
+    } else if (frame.can_id == 0x213) {
         handle_service_response(frame);
     }
 }
