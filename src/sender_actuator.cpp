@@ -30,6 +30,7 @@
 #include <chrono>
 
 #include <linux/can.h>
+
 #include "canif.hpp"
 #include "scbdriver/LinearActuatorServiceResponse.h"
 #include "sender_actuator.hpp"
@@ -46,7 +47,7 @@ sender_actuator::sender_actuator(ros::NodeHandle &n, canif &can)
 void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstPtr &msg)
 {
     if (msg->actuators.size() != 3) {
-        ROS_WARN("Drop message with invalid size");
+        ROS_WARN("Drop message with invalid size: %lu", msg->actuators.size());
         return;
     }
 
@@ -114,11 +115,11 @@ bool sender_actuator::handle_location(
     scbdriver::LinearActuatorLocation::Response& res)
 {
     if (req.location.data.size() != 3 ) {
-        ROS_WARN("Invalid location request: %lu", req.location.data.size());
+        ROS_WARN("Reject request with invalid location size: %lu", req.location.data.size());
         return false;
     }
     if (req.power.data.size() != 3 ) {
-        ROS_WARN("Invalid power request: %lu", req.power.data.size());
+        ROS_WARN("Reject request with invalid power size: %lu", req.power.data.size());
         return false;
     }
 
@@ -175,7 +176,7 @@ std::optional<scbdriver::LinearActuatorServiceResponse> sender_actuator::wait_fo
         return !node.empty();
     })};
     if (!is_done) {
-        ROS_ERROR("Timeout waiting for response");
+        ROS_ERROR("Timeout waiting for service response");
         return std::nullopt;
     }
 
