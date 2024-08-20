@@ -70,6 +70,7 @@ public:
             break;
         case 0x209:
         case 0x20a:
+        case 0x213:
             actuator.handle(frame);
             break;
         case 0x20c:
@@ -135,6 +136,7 @@ int main(int argc, char *argv[])
         {0x20e, CAN_SFF_MASK},
         {0x210, CAN_SFF_MASK},
         {0x212, CAN_SFF_MASK},
+        {0x213, CAN_SFF_MASK},
     };
     if (can.init(filter, sizeof filter) < 0) {
         std::cerr << "canif::init() failed" << std::endl;
