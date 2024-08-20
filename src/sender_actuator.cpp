@@ -121,6 +121,7 @@ bool sender_actuator::handle_location(
             .can_dlc{8},
         };
         frame.data[0] = 0;  // 0 means location
+        // ROS:[center,left,right], ROBOT:[left,center,right]
         frame.data[1] = req.location.data[1];
         frame.data[2] = req.location.data[0];
         frame.data[3] = req.location.data[2];
@@ -141,6 +142,7 @@ bool sender_actuator::handle_location(
 
         res.success = resp->success;
         res.detail.data.resize(3);
+        // ROS:[center,left,right], ROBOT:[left,center,right]
         res.detail.data[0] = resp->detail[1];
         res.detail.data[1] = resp->detail[0];
         res.detail.data[2] = resp->detail[2];
@@ -166,4 +168,3 @@ std::optional<scbdriver::LinearActuatorServiceResponse> sender_actuator::wait_fo
     // node own data because service was done
     return node.mapped();
 }
-

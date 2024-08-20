@@ -94,7 +94,7 @@ void receiver_actuator::handle_service_response(const can_frame &frame) const
 
     scbdriver::LinearActuatorServiceResponse msg;
     msg.mode = frame.data[0];
-    msg.success = frame.data[1] == 0;
+    msg.success = frame.data[1] == 1;
     msg.detail.resize(3);
     msg.detail[0] = frame.data[2];
     msg.detail[1] = frame.data[3];
