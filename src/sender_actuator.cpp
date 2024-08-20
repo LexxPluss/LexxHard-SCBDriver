@@ -67,6 +67,7 @@ void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstP
 void sender_actuator::handle_srv_resp(const scbdriver::LinearActuatorServiceResponse::ConstPtr& msg)
 {
     resp_msg_store.insert(*msg);
+    service_resp_cv.notify_all();
 }
 
 bool sender_actuator::handle_init(
