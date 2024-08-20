@@ -33,7 +33,7 @@ receiver_actuator::receiver_actuator(ros::NodeHandle &n)
     : pub_encoder{n.advertise<std_msgs::Int32MultiArray>("/body_control/encoder_count", queue_size)},
       pub_current{n.advertise<std_msgs::Float32MultiArray>("/body_control/linear_actuator_current", queue_size)},
       pub_connection{n.advertise<std_msgs::Float32MultiArray>("/body_control/shelf_connection", queue_size)},
-      pub_src_resp{n.advertise<scbdriver::LinearActuatorServiceResponse>("/body_control/linear_actuator_service_response", queue_size)}
+      pub_src_resp{n.advertise<scbdriver::LinearActuatorServiceResponse>("scbdriver/linear_actuator_service_response", queue_size)}
 {
 }
 

@@ -37,7 +37,7 @@
 
 sender_actuator::sender_actuator(ros::NodeHandle &n, canif &can)
     : sub_actuator{n.subscribe("/body_control/linear_actuator", queue_size, &sender_actuator::handle, this)},
-      sub_srv_resp{n.subscribe("/body_control/linear_actuator_service_response", queue_size, &sender_actuator::handle_srv_resp, this)},
+      sub_srv_resp{n.subscribe("scbdriver/linear_actuator_service_response", queue_size, &sender_actuator::handle_srv_resp, this)},
       srv_init{n.advertiseService("/body_control/init_linear_actuator", &sender_actuator::handle_init, this)},
       srv_location{n.advertiseService("/body_control/linear_actuator_location", &sender_actuator::handle_location, this)},
       can{can}
