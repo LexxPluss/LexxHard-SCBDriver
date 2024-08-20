@@ -24,31 +24,40 @@
  */
 
 #include <linux/can.h>
-#include "canif.hpp"
-#include "sender_gpio.hpp"
+#include "std_msgs/Bool.h"
+#include "receiver_gpio.hpp"
 
 namespace {
-    uint8_t set_out_port_status(const uint8_t status, const uint8_t port, const bool value)
+    bool get_in_port_status(const can_frame &frame,const uint8_t port)
     {
         const uint8_t bit_pos = 7 - port;
-        return (status & ~(1 << bit_pos)) | (value << bit_pos);
+        return frame.data[0] & (1 << bit_pos);
     }
 }
 
-sender_gpio::sender_gpio(ros::NodeHandle &n, canif &can)
-    : subs{{
-        n.subscribe("gpio/out_port0", queue_size, &sender_gpio::handle<0>, this),
-        n.subscribe("gpio/out_port1", queue_size, &sender_gpio::handle<1>, this),
-        n.subscribe("gpio/out_port2", queue_size, &sender_gpio::handle<2>, this),
-        n.subscribe("gpio/out_port3", queue_size, &sender_gpio::handle<3>, this),
-      }},
-      can{can}
+
+receiver_gpio::receiver_gpio(ros::NodeHandle &n)
+    : pubs{{
+        n.advertise<std_msgs::Bool>("gpio/in_port0", queue_size),
+        n.advertise<std_msgs::Bool>("gpio/in_port1", queue_size),
+        n.advertise<std_msgs::Bool>("gpio/in_port2", queue_size),
+        n.advertise<std_msgs::Bool>("gpio/in_port3", queue_size),
+    }}
 {
 }
 
-template<uint8_t N>
-void sender_gpio::handle(const std_msgs::Bool::ConstPtr& msg)
+void receiver_gpio::handle(const can_frame &frame) const
 {
-    frame.data[0] = set_out_port_status(frame.data[0], N, msg->data);
-    can.send(frame);
+    if (frame.can_id != 0x212) {
+        return;
+    }
+    if (frame.can_dlc != 1) {
+        return;
+    }
+
+    for(size_t i = 0; i < 4; ++i) {
+        std_msgs::Bool msg;
+        msg.data = get_in_port_status(frame, i);
+        pubs[i].publish(msg);
+    }
 }

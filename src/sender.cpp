@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     sender_actuator actuator{n, can};
     sender_board board{n, can};
     sender_dfu dfu{n, can};
-    sender_gpio gpio{n};
+    sender_gpio gpio{n, can};
     sender_led led{n, can};
     sender_pgv pgv{n, can};
     ros::MultiThreadedSpinner spinner{2};
