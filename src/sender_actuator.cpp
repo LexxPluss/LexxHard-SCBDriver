@@ -45,6 +45,11 @@ sender_actuator::sender_actuator(ros::NodeHandle &n, canif &can)
 
 void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstPtr &msg)
 {
+    if (msg->actuators.size() != 3) {
+        ROS_WARN("Drop message with invalid size");
+        return;
+    }
+
     std::unique_lock<std::mutex> lock{actuator_control_mtx, std::try_to_lock};
     if (!lock.owns_lock()) {
         return;
@@ -108,6 +113,15 @@ bool sender_actuator::handle_location(
     scbdriver::LinearActuatorLocation::Request& req,
     scbdriver::LinearActuatorLocation::Response& res)
 {
+    if (req.location.data.size() != 3 ) {
+        ROS_WARN("Invalid location request");
+        return false;
+    }
+    if (req.power.data.size() != 3 ) {
+        ROS_WARN("Invalid power request");
+        return false;
+    }
+
     std::unique_lock<std::mutex> lock(actuator_control_mtx, std::try_to_lock);
     if (!lock.owns_lock()) {
         return false;
