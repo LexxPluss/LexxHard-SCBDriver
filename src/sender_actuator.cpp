@@ -114,11 +114,11 @@ bool sender_actuator::handle_location(
     scbdriver::LinearActuatorLocation::Response& res)
 {
     if (req.location.data.size() != 3 ) {
-        ROS_WARN("Invalid location request");
+        ROS_WARN("Invalid location request: %lu", req.location.data.size());
         return false;
     }
     if (req.power.data.size() != 3 ) {
-        ROS_WARN("Invalid power request");
+        ROS_WARN("Invalid power request: %lu", req.power.data.size());
         return false;
     }
 
