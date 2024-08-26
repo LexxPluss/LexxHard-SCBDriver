@@ -25,10 +25,18 @@
 
 #pragma once
 
+#include <mutex>
+#include <optional>
+#include <condition_variable>
+#include <map>
+#include <chrono>
+
 #include "ros/ros.h"
 #include "std_msgs/Int32MultiArray.h"
 #include "scbdriver/InitLinearActuator.h"
+#include "scbdriver/LinearActuatorLocation.h"
 #include "scbdriver/LinearActuatorControlArray.h"
+#include "scbdriver/LinearActuatorServiceResponse.h"
 
 class canif;
 
@@ -36,15 +44,48 @@ class sender_actuator {
 public:
     sender_actuator(ros::NodeHandle &n, canif &can);
 private:
-    void handle(const scbdriver::LinearActuatorControlArray::ConstPtr& msg) const;
-    void handle_encoder(const std_msgs::Int32MultiArray::ConstPtr& msg);
+    class service_response_message_store {
+    public:
+        using value_type = scbdriver::LinearActuatorServiceResponse;
+        using container_type = std::map<uint8_t, value_type>;
+
+        void insert(value_type const& msg)
+        {
+            std::lock_guard<std::mutex> lock{mtx};
+            store[msg.counter] = msg;
+        }
+
+        container_type::node_type extract(uint8_t counter)
+        {
+            std::lock_guard<std::mutex> lock{mtx};
+            return store.extract(counter);
+        }
+
+    private:
+        container_type store;
+        std::mutex mtx;
+    };
+
+    void handle(const scbdriver::LinearActuatorControlArray::ConstPtr& msg);
+    void handle_srv_resp(const scbdriver::LinearActuatorServiceResponse::ConstPtr& msg);
     bool handle_init(
         scbdriver::InitLinearActuator::Request& req,
         scbdriver::InitLinearActuator::Response& res);
-    ros::Subscriber sub_actuator, sub_encoder;
-    ros::ServiceServer srv_actuator;
+    bool handle_location(
+        scbdriver::LinearActuatorLocation::Request& req,
+        scbdriver::LinearActuatorLocation::Response& res);
+    std::optional<scbdriver::LinearActuatorServiceResponse> wait_for_service_response(
+        std::unique_lock<std::mutex>& lock,
+        uint8_t counter);
+    ros::Subscriber sub_actuator;
+    ros::Subscriber sub_srv_resp;
+    ros::ServiceServer srv_init;
+    ros::ServiceServer srv_location;
     canif &can;
-    int32_t encoder[3]{0, 0, 0};
-    bool in_service{false};
+    std::mutex actuator_control_mtx;
+    std::condition_variable service_resp_cv;
+    service_response_message_store  resp_msg_store;
+    uint8_t counter{0};
     static constexpr uint32_t queue_size{10};
+    static constexpr std::chrono::seconds service_response_timeout{10};
 };

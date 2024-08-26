@@ -44,12 +44,14 @@ add_message_files(
   Led.msg
   LinearActuatorControl.msg
   LinearActuatorControlArray.msg
+  LinearActuatorServiceResponse.msg
   PositionGuideVision.msg
 )
 
 add_service_files(
   FILES
   InitLinearActuator.srv
+  LinearActuatorLocation.srv
 )
 
 generate_messages(
