@@ -115,5 +115,5 @@ void receiver_board::publish_safety_lidar(const can_frame &frame) const
 {
     std_msgs::Bool msg;
     msg.data = (frame.data[0] & 0b00000010) != 0;
-    pub_bumper.publish(msg);
+    pub_safety_lidar.publish(msg);
 }
