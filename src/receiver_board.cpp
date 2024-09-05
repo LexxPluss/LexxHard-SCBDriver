@@ -38,7 +38,8 @@ receiver_board::receiver_board(ros::NodeHandle &n)
       pub_charge{n.advertise<std_msgs::Byte>("/body_control/charge_status", queue_size)},
       pub_power{n.advertise<std_msgs::Byte>("/body_control/power_state", queue_size)},
       pub_charge_delay{n.advertise<std_msgs::UInt8>("/body_control/charge_heartbeat_delay", queue_size)},
-      pub_charge_voltage{n.advertise<std_msgs::Float32>("/body_control/charge_connector_voltage", queue_size)}
+      pub_charge_voltage{n.advertise<std_msgs::Float32>("/body_control/charge_connector_voltage", queue_size)},
+      pub_safety_lidar{n.advertise<std_msgs::Bool>("/sensor_set/safety_lidar", queue_size)}
 {
 }
 
@@ -53,6 +54,7 @@ void receiver_board::handle(const can_frame &frame) const
     publish_power(frame);
     publish_charge_delay(frame);
     publish_charge_voltage(frame);
+    publish_safety_lidar(frame);
 }
 
 void receiver_board::publish_bumper(const can_frame &frame) const
@@ -107,4 +109,11 @@ void receiver_board::publish_charge_voltage(const can_frame &frame) const
     std_msgs::Float32 msg;
     msg.data = ((frame.data[4] << 8) | frame.data[5]) * 1e-3f;
     pub_charge_voltage.publish(msg);
+}
+
+void receiver_board::publish_safety_lidar(const can_frame &frame) const
+{
+    std_msgs::Bool msg;
+    msg.data = (frame.data[0] & 0b00000010) != 0;
+    pub_safety_lidar.publish(msg);
 }
