@@ -31,7 +31,7 @@ struct can_frame;
 
 class receiver_actuator {
 public:
-    receiver_actuator(ros::NodeHandle &n);
+    receiver_actuator(ros::NodeHandle &n, ros::NodeHandle &pn);
     void handle(const can_frame &frame) const;
 private:
     ros::Publisher pub_encoder;

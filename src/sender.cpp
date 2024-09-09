@@ -37,12 +37,13 @@ int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "sender");
     ros::NodeHandle n;
+    ros::NodeHandle pn("~");
     canif can;
     if (can.init(nullptr, 0) < 0) {
         std::cerr << "canif::init() failed" << std::endl;
         return -1;
     }
-    sender_actuator actuator{n, can};
+    sender_actuator actuator{n, pn, can};
     sender_board board{n, can};
     sender_dfu dfu{n, can};
     sender_gpio gpio{n, can};

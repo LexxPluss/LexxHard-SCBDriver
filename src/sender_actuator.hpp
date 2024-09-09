@@ -42,7 +42,7 @@ class canif;
 
 class sender_actuator {
 public:
-    sender_actuator(ros::NodeHandle &n, canif &can);
+    sender_actuator(ros::NodeHandle &n, ros::NodeHandle &pn, canif &can);
 private:
     class service_response_message_store {
     public:

@@ -35,16 +35,16 @@
 #include "scbdriver/LinearActuatorServiceResponse.h"
 #include "sender_actuator.hpp"
 
-sender_actuator::sender_actuator(ros::NodeHandle &n, canif &can)
+sender_actuator::sender_actuator(ros::NodeHandle &n, ros::NodeHandle &pn, canif &can)
     : sub_actuator{n.subscribe("/body_control/linear_actuator", queue_size, &sender_actuator::handle, this)},
       sub_srv_resp{n.subscribe("scbdriver/linear_actuator_service_response", queue_size, &sender_actuator::handle_srv_resp, this)},
       srv_init{n.advertiseService("/body_control/init_linear_actuator", &sender_actuator::handle_init, this)},
       srv_location{n.advertiseService("/body_control/linear_actuator_location", &sender_actuator::handle_location, this)},
       can{can}
 {
-    n.param<bool>("invert_center_actuator_direction", invert_center_actuator_direction,false);
-    n.param<bool>("invert_left_actuator_direction", invert_left_actuator_direction,false);
-    n.param<bool>("invert_right_actuator_direction", invert_right_actuator_direction,false);
+    pn.param<bool>("invert_center_actuator_direction", invert_center_actuator_direction,false);
+    pn.param<bool>("invert_left_actuator_direction", invert_left_actuator_direction,false);
+    pn.param<bool>("invert_right_actuator_direction", invert_right_actuator_direction,false);
 }
 
 int8_t sender_actuator::adjust_direction(size_t index, int8_t direction) const

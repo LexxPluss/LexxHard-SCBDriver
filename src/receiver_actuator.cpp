@@ -29,15 +29,15 @@
 #include "scbdriver/LinearActuatorServiceResponse.h"
 #include "receiver_actuator.hpp"
 
-receiver_actuator::receiver_actuator(ros::NodeHandle &n)
+receiver_actuator::receiver_actuator(ros::NodeHandle &n, ros::NodeHandle &pn)
     : pub_encoder{n.advertise<std_msgs::Int32MultiArray>("/body_control/encoder_count", queue_size)},
       pub_current{n.advertise<std_msgs::Float32MultiArray>("/body_control/linear_actuator_current", queue_size)},
       pub_connection{n.advertise<std_msgs::Float32MultiArray>("/body_control/shelf_connection", queue_size)},
       pub_src_resp{n.advertise<scbdriver::LinearActuatorServiceResponse>("scbdriver/linear_actuator_service_response", queue_size)}
 {
-    n.param<bool>("invert_center_actuator_direction", invert_center_actuator_direction,false);
-    n.param<bool>("invert_left_actuator_direction", invert_left_actuator_direction,false);
-    n.param<bool>("invert_right_actuator_direction", invert_right_actuator_direction,false);
+    pn.param<bool>("invert_center_actuator_direction", invert_center_actuator_direction,false);
+    pn.param<bool>("invert_left_actuator_direction", invert_left_actuator_direction,false);
+    pn.param<bool>("invert_right_actuator_direction", invert_right_actuator_direction,false);
 }
 
 int16_t receiver_actuator::adjust_encoder_count(size_t index, int16_t count) const
