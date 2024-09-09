@@ -38,9 +38,14 @@ private:
     ros::Publisher pub_current;
     ros::Publisher pub_connection;
     ros::Publisher pub_src_resp;
+    bool invert_center_actuator_direction;
+    bool invert_left_actuator_direction;
+    bool invert_right_actuator_direction;
+
     static constexpr uint32_t queue_size{10};
 
     void handle_encoder_count(const can_frame &frame) const;
     void handle_current(const can_frame &frame) const;
     void handle_service_response(const can_frame &frame) const;
+    int16_t adjust_encoder_count(size_t indx, int16_t count) const;
 };

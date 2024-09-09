@@ -42,6 +42,24 @@ sender_actuator::sender_actuator(ros::NodeHandle &n, canif &can)
       srv_location{n.advertiseService("/body_control/linear_actuator_location", &sender_actuator::handle_location, this)},
       can{can}
 {
+    n.param<bool>("invert_center_actuator_direction", invert_center_actuator_direction,false);
+    n.param<bool>("invert_left_actuator_direction", invert_left_actuator_direction,false);
+    n.param<bool>("invert_right_actuator_direction", invert_right_actuator_direction,false);
+}
+
+int8_t sender_actuator::adjust_direction(size_t index, int8_t direction) const
+{
+    bool const should_invert_tbl[] = {
+        invert_center_actuator_direction,
+        invert_left_actuator_direction,
+        invert_right_actuator_direction
+    };
+    bool const should_invert{should_invert_tbl[index]};
+
+    if(should_invert) {
+        return -direction;
+    }
+    return direction;
 }
 
 void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstPtr &msg)
@@ -61,9 +79,9 @@ void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstP
         .can_dlc{6},
     };
     // ROS:[center,left,right], ROBOT:[left,center,right]
-    frame.data[0] = msg->actuators[1].direction;
-    frame.data[1] = msg->actuators[0].direction;
-    frame.data[2] = msg->actuators[2].direction;
+    frame.data[0] = adjust_direction(1, msg->actuators[1].direction);
+    frame.data[1] = adjust_direction(0, msg->actuators[0].direction);
+    frame.data[2] = adjust_direction(2, msg->actuators[2].direction);
     frame.data[3] = msg->actuators[1].power;
     frame.data[4] = msg->actuators[0].power;
     frame.data[5] = msg->actuators[2].power;
@@ -92,7 +110,10 @@ bool sender_actuator::handle_init(
             .can_id{0x20b},
             .can_dlc{8},
         };
-        frame.data[0] = -1;  // -1 means init
+        frame.data[0] = 1;  // 1 means init
+        frame.data[1] = adjust_direction(0, -1);  // -1 means initialize with lowest, 1 means initialize with  highest
+        frame.data[2] = adjust_direction(1, -1);
+        frame.data[3] = adjust_direction(2, -1);
         frame.data[7] = request_id;
 
         can.send(frame);
@@ -137,9 +158,9 @@ bool sender_actuator::handle_location(
         };
         frame.data[0] = 0;  // 0 means location
         // ROS:[center,left,right], ROBOT:[left,center,right]
-        frame.data[1] = req.location.data[1];
-        frame.data[2] = req.location.data[0];
-        frame.data[3] = req.location.data[2];
+        frame.data[1] = adjust_direction(0, req.location.data[1]);
+        frame.data[2] = adjust_direction(1, req.location.data[0]);
+        frame.data[3] = adjust_direction(2, req.location.data[2]);
         frame.data[4] = req.power.data[1];
         frame.data[5] = req.power.data[0];
         frame.data[6] = req.power.data[2];
