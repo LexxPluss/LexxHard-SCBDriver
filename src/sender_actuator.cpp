@@ -79,8 +79,8 @@ void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstP
         .can_dlc{6},
     };
     // ROS:[center,left,right], ROBOT:[left,center,right]
-    frame.data[0] = adjust_direction(1, msg->actuators[1].direction);
-    frame.data[1] = adjust_direction(0, msg->actuators[0].direction);
+    frame.data[0] = adjust_direction(0, msg->actuators[1].direction);
+    frame.data[1] = adjust_direction(1, msg->actuators[0].direction);
     frame.data[2] = adjust_direction(2, msg->actuators[2].direction);
     frame.data[3] = msg->actuators[1].power;
     frame.data[4] = msg->actuators[0].power;
