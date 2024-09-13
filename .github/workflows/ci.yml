@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [ main ]
 jobs:
-  lint:
+  style-check:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -13,12 +13,12 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y clang-format
-    - name: Run C++ linter
+    - name: Run formatter
       run: |
-        find . -name ‘*.h’ -or -name ‘*.hpp’ -or -name ‘*.cpp’ | xargs clang-format -i --style=file
+        find . -name '*.h' -or -name '*.hpp' -or -name '*.cpp' | xargs clang-format -i --style=file:./util/workspace/.clang-format
         git diff --exit-code
   build:
-    needs: lint
+    needs: style-check
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
