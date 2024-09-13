@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 jobs:
   style-check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
     - name: Install clang-format
@@ -19,7 +19,7 @@ jobs:
         git diff --exit-code
   build:
     needs: style-check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
     - name: Set up Docker Buildx
