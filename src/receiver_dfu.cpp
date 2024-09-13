@@ -27,18 +27,18 @@
 #include "std_msgs/UInt8MultiArray.h"
 #include "receiver_dfu.hpp"
 
-receiver_dfu::receiver_dfu(ros::NodeHandle &n)
-    : pub{n.advertise<std_msgs::UInt8MultiArray>("/lexxhard/dfu_response", queue_size)}
+receiver_dfu::receiver_dfu(ros::NodeHandle& n)
+  : pub{ n.advertise<std_msgs::UInt8MultiArray>("/lexxhard/dfu_response", queue_size) }
 {
 }
 
-void receiver_dfu::handle(const can_frame &frame)
+void receiver_dfu::handle(const can_frame& frame)
 {
-    static constexpr auto len{4};
-    if (frame.can_dlc != len)
-        return;
-    std_msgs::UInt8MultiArray msg;
-    msg.data.resize(len);
-    std::copy_n(std::begin(frame.data), len, std::begin(msg.data));
-    pub.publish(msg);
+  static constexpr auto len{ 4 };
+  if (frame.can_dlc != len)
+    return;
+  std_msgs::UInt8MultiArray msg;
+  msg.data.resize(len);
+  std::copy_n(std::begin(frame.data), len, std::begin(msg.data));
+  pub.publish(msg);
 }

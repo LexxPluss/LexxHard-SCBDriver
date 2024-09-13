@@ -37,84 +37,88 @@
 #include "receiver_gpio.hpp"
 #include "receiver_tug_encoder.hpp"
 
-namespace {
+namespace
+{
 
-class handler {
+class handler
+{
 public:
-    handler(ros::NodeHandle &n,ros::NodeHandle &pn)
-        : actuator{n, pn}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n}, gpio{n}, tug_encoder{n} {}
-    void handle(const can_frame &frame) {
-        switch (frame.can_id) {
-        case 0x100:
-        case 0x101:
-        case 0x103:
-        case 0x110:
-        case 0x111:
-        case 0x112:
-        case 0x113:
-        case 0x120:
-        case 0x130:
-            bmu.handle(frame);
-            break;
-        case 0x200:
-        case 0x201:
-        case 0x202:
-            pgv.handle(frame);
-            break;
-        case 0x204:
-            uss.handle(frame);
-            break;
-        case 0x206:
-        case 0x207:
-            imu.handle(frame);
-            break;
-        case 0x209:
-        case 0x20a:
-        case 0x213:
-            actuator.handle(frame);
-            break;
-        case 0x20c:
-            board.handle(frame);
-            break;
-        case 0x20e:
-            dfu.handle(frame);
-            break;
-        case 0x210:
-            tug_encoder.handle(frame);
-            break;
-        case 0x212:
-            gpio.handle(frame);
-            break;
-        default:
-            break;
-        }
-    };
+  handler(ros::NodeHandle& n, ros::NodeHandle& pn)
+    : actuator{ n, pn }, bmu{ n }, board{ n }, dfu{ n }, imu{ n }, pgv{ n }, uss{ n }, gpio{ n }, tug_encoder{ n }
+  {
+  }
+  void handle(const can_frame& frame)
+  {
+    switch (frame.can_id)
+    {
+      case 0x100:
+      case 0x101:
+      case 0x103:
+      case 0x110:
+      case 0x111:
+      case 0x112:
+      case 0x113:
+      case 0x120:
+      case 0x130:
+        bmu.handle(frame);
+        break;
+      case 0x200:
+      case 0x201:
+      case 0x202:
+        pgv.handle(frame);
+        break;
+      case 0x204:
+        uss.handle(frame);
+        break;
+      case 0x206:
+      case 0x207:
+        imu.handle(frame);
+        break;
+      case 0x209:
+      case 0x20a:
+      case 0x213:
+        actuator.handle(frame);
+        break;
+      case 0x20c:
+        board.handle(frame);
+        break;
+      case 0x20e:
+        dfu.handle(frame);
+        break;
+      case 0x210:
+        tug_encoder.handle(frame);
+        break;
+      case 0x212:
+        gpio.handle(frame);
+        break;
+      default:
+        break;
+    }
+  };
+
 private:
-    receiver_actuator actuator;
-    receiver_bmu bmu;
-    receiver_board board;
-    receiver_dfu dfu;
-    receiver_imu imu;
-    receiver_pgv pgv;
-    receiver_uss uss;
-    receiver_gpio gpio;
-    receiver_tug_encoder tug_encoder;
+  receiver_actuator actuator;
+  receiver_bmu bmu;
+  receiver_board board;
+  receiver_dfu dfu;
+  receiver_imu imu;
+  receiver_pgv pgv;
+  receiver_uss uss;
+  receiver_gpio gpio;
+  receiver_tug_encoder tug_encoder;
 };
 
-}
+}  // namespace
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-    ros::init(argc, argv, "receiver");
-    ros::NodeHandle n;
-    ros::NodeHandle pn("~");
-    handler handler{n, pn};
-    canif can;
-    can.set_handler(
-        [&](const can_frame &frame) {
-            handler.handle(frame);
-        }
-    );
+  ros::init(argc, argv, "receiver");
+  ros::NodeHandle n;
+  ros::NodeHandle pn("~");
+  handler handler{ n, pn };
+  canif can;
+  can.set_handler([&](const can_frame& frame) { handler.handle(frame); });
+  // clang-format off
     can_filter filter[]{
         {0x100, CAN_SFF_MASK},
         {0x101, CAN_SFF_MASK},
@@ -139,14 +143,17 @@ int main(int argc, char *argv[])
         {0x212, CAN_SFF_MASK},
         {0x213, CAN_SFF_MASK},
     };
-    if (can.init(filter, sizeof filter) < 0) {
-        std::cerr << "canif::init() failed" << std::endl;
-        return -1;
-    }
-    while (ros::ok()) {
-        can.poll(10);
-        ros::spinOnce();
-    }
-    can.term();
-    return 0;
+  // clang-format on
+  if (can.init(filter, sizeof filter) < 0)
+  {
+    std::cerr << "canif::init() failed" << std::endl;
+    return -1;
+  }
+  while (ros::ok())
+  {
+    can.poll(10);
+    ros::spinOnce();
+  }
+  can.term();
+  return 0;
 }

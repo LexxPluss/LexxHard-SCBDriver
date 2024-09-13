@@ -30,15 +30,17 @@
 
 struct can_frame;
 
-class receiver_imu{
+class receiver_imu
+{
 public:
-    receiver_imu(ros::NodeHandle &n);
-    void handle(const can_frame &frame);
+  receiver_imu(ros::NodeHandle& n);
+  void handle(const can_frame& frame);
+
 private:
-    bool fill_buffer(const can_frame &frame);
-    void decode(scbdriver::Imu &msg) const;
-    ros::Publisher pub;
-    int16_t accel[3], gyro[3];
-    uint8_t counter[2]{255, 255};
-    static constexpr uint32_t queue_size{10};
+  bool fill_buffer(const can_frame& frame);
+  void decode(scbdriver::Imu& msg) const;
+  ros::Publisher pub;
+  int16_t accel[3], gyro[3];
+  uint8_t counter[2]{ 255, 255 };
+  static constexpr uint32_t queue_size{ 10 };
 };

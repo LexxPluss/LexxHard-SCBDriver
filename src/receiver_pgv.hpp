@@ -32,16 +32,19 @@
 
 struct can_frame;
 
-class receiver_pgv {
+class receiver_pgv
+{
 public:
-    receiver_pgv(ros::NodeHandle &n);
-    void handle(const can_frame &frame);
+  receiver_pgv(ros::NodeHandle& n);
+  void handle(const can_frame& frame);
+
 private:
-    bool fill_buffer(const can_frame &frame);
-    bool validate() const;
-    void decode(scbdriver::PositionGuideVision &msg) const;
-    ros::Publisher pub;
-    std::string direction{"Straight Ahead"};
-    uint8_t counter[3]{255, 255, 255}, buffer[21];;
-    static constexpr uint32_t queue_size{10};
+  bool fill_buffer(const can_frame& frame);
+  bool validate() const;
+  void decode(scbdriver::PositionGuideVision& msg) const;
+  ros::Publisher pub;
+  std::string direction{ "Straight Ahead" };
+  uint8_t counter[3]{ 255, 255, 255 }, buffer[21];
+  ;
+  static constexpr uint32_t queue_size{ 10 };
 };

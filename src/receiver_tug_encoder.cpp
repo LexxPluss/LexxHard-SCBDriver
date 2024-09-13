@@ -27,19 +27,19 @@
 #include "std_msgs/UInt32.h"
 #include "receiver_tug_encoder.hpp"
 
-receiver_tug_encoder::receiver_tug_encoder(ros::NodeHandle &n)
-    : pub{n.advertise<std_msgs::UInt32>("/sensor_set/tug_encoder", queue_size)}
+receiver_tug_encoder::receiver_tug_encoder(ros::NodeHandle& n)
+  : pub{ n.advertise<std_msgs::UInt32>("/sensor_set/tug_encoder", queue_size) }
 {
 }
 
-void receiver_tug_encoder::handle(const can_frame &frame) const
+void receiver_tug_encoder::handle(const can_frame& frame) const
 {
-    if (frame.can_dlc != 2)
-        return;
+  if (frame.can_dlc != 2)
+    return;
 
-    uint16_t const enc_value = static_cast<uint16_t>(frame.data[0]) << 8 | frame.data[1];
+  uint16_t const enc_value = static_cast<uint16_t>(frame.data[0]) << 8 | frame.data[1];
 
-    std_msgs::UInt32 msg;
-    msg.data = enc_value;
-    pub.publish(msg);
+  std_msgs::UInt32 msg;
+  msg.data = enc_value;
+  pub.publish(msg);
 }

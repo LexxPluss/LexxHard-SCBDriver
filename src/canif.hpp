@@ -32,17 +32,19 @@
 
 struct can_frame;
 
-class canif {
+class canif
+{
 public:
-    canif();
-    ~canif();
-    void set_handler(std::function<void(const can_frame &frame)> handler);
-    int init(const can_filter *filter, size_t nfilter);
-    void term();
-    int poll(int timeout_ms) const;
-    int send(const can_frame &frame) const;
+  canif();
+  ~canif();
+  void set_handler(std::function<void(const can_frame& frame)> handler);
+  int init(const can_filter* filter, size_t nfilter);
+  void term();
+  int poll(int timeout_ms) const;
+  int send(const can_frame& frame) const;
+
 private:
-    std::function<void(const can_frame &frame)> handler{nullptr};
-    std::string ifname{"can1"};
-    int sock{-1};
+  std::function<void(const can_frame& frame)> handler{ nullptr };
+  std::string ifname{ "can1" };
+  int sock{ -1 };
 };

@@ -27,26 +27,27 @@
 #include "std_msgs/Float64MultiArray.h"
 #include "receiver_uss.hpp"
 
-receiver_uss::receiver_uss(ros::NodeHandle &n)
-    : pub{n.advertise<std_msgs::Float64MultiArray>("/sensor_set/ultrasonic", queue_size)}
+receiver_uss::receiver_uss(ros::NodeHandle& n)
+  : pub{ n.advertise<std_msgs::Float64MultiArray>("/sensor_set/ultrasonic", queue_size) }
 {
 }
 
-void receiver_uss::handle(const can_frame &frame) const
+void receiver_uss::handle(const can_frame& frame) const
 {
-    if (frame.can_dlc != 8)
-        return;
-    uint64_t work{0};
-    for (int i{0}; i < 8; ++i) {
-        work <<= 8;
-        work |= frame.data[i];
-    }
-    std_msgs::Float64MultiArray msg;
-    msg.data.resize(5);
-    msg.data[0] = ((work >> 52) & 0xfff) * 2.0 * 1e-3;
-    msg.data[1] = ((work >> 40) & 0xfff) * 2.0 * 1e-3;
-    msg.data[2] = ((work >> 28) & 0xfff) * 2.0 * 1e-3;
-    msg.data[3] = ((work >> 16) & 0xfff) * 2.0 * 1e-3;
-    msg.data[4] = ((work >>  4) & 0xfff) * 2.0 * 1e-3;
-    pub.publish(msg);
+  if (frame.can_dlc != 8)
+    return;
+  uint64_t work{ 0 };
+  for (int i{ 0 }; i < 8; ++i)
+  {
+    work <<= 8;
+    work |= frame.data[i];
+  }
+  std_msgs::Float64MultiArray msg;
+  msg.data.resize(5);
+  msg.data[0] = ((work >> 52) & 0xfff) * 2.0 * 1e-3;
+  msg.data[1] = ((work >> 40) & 0xfff) * 2.0 * 1e-3;
+  msg.data[2] = ((work >> 28) & 0xfff) * 2.0 * 1e-3;
+  msg.data[3] = ((work >> 16) & 0xfff) * 2.0 * 1e-3;
+  msg.data[4] = ((work >> 4) & 0xfff) * 2.0 * 1e-3;
+  pub.publish(msg);
 }

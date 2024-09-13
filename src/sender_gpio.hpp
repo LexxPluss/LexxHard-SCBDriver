@@ -25,24 +25,26 @@
 
 #pragma once
 
-#include<array>
+#include <array>
 
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 
 class canif;
 
-class sender_gpio {
+class sender_gpio
+{
 public:
-    sender_gpio(ros::NodeHandle &n, canif &can);
+  sender_gpio(ros::NodeHandle& n, canif& can);
+
 private:
-    template<uint8_t N>
-    void handle(const std_msgs::Bool::ConstPtr& msg);
-    std::array<ros::Subscriber, 4> subs;
-    can_frame frame{
-        .can_id{0x211},
-        .can_dlc{1},
-    };
-    canif &can;
-    static constexpr uint32_t queue_size{10};
+  template <uint8_t N>
+  void handle(const std_msgs::Bool::ConstPtr& msg);
+  std::array<ros::Subscriber, 4> subs;
+  can_frame frame{
+    .can_id{ 0x211 },
+    .can_dlc{ 1 },
+  };
+  canif& can;
+  static constexpr uint32_t queue_size{ 10 };
 };

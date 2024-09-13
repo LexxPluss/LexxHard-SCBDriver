@@ -27,37 +27,40 @@
 #include "std_msgs/Bool.h"
 #include "receiver_gpio.hpp"
 
-namespace {
-    bool get_in_port_status(const can_frame &frame,const uint8_t port)
-    {
-        const uint8_t bit_pos = 7 - port;
-        return frame.data[0] & (1 << bit_pos);
-    }
+namespace
+{
+bool get_in_port_status(const can_frame& frame, const uint8_t port)
+{
+  const uint8_t bit_pos = 7 - port;
+  return frame.data[0] & (1 << bit_pos);
 }
+}  // namespace
 
-
-receiver_gpio::receiver_gpio(ros::NodeHandle &n)
-    : pubs{{
+receiver_gpio::receiver_gpio(ros::NodeHandle& n)
+  : pubs{ {
         n.advertise<std_msgs::Bool>("gpio/in_port0", queue_size),
         n.advertise<std_msgs::Bool>("gpio/in_port1", queue_size),
         n.advertise<std_msgs::Bool>("gpio/in_port2", queue_size),
         n.advertise<std_msgs::Bool>("gpio/in_port3", queue_size),
-    }}
+    } }
 {
 }
 
-void receiver_gpio::handle(const can_frame &frame) const
+void receiver_gpio::handle(const can_frame& frame) const
 {
-    if (frame.can_id != 0x212) {
-        return;
-    }
-    if (frame.can_dlc != 1) {
-        return;
-    }
+  if (frame.can_id != 0x212)
+  {
+    return;
+  }
+  if (frame.can_dlc != 1)
+  {
+    return;
+  }
 
-    for(size_t i = 0; i < 4; ++i) {
-        std_msgs::Bool msg;
-        msg.data = get_in_port_status(frame, i);
-        pubs[i].publish(msg);
-    }
+  for (size_t i = 0; i < 4; ++i)
+  {
+    std_msgs::Bool msg;
+    msg.data = get_in_port_status(frame, i);
+    pubs[i].publish(msg);
+  }
 }
