@@ -84,7 +84,8 @@ private:
     ros::ServiceServer srv_init;
     ros::ServiceServer srv_location;
     canif &can;
-    std::mutex actuator_control_mtx;
+    std::mutex handle_mtx;
+    std::mutex notify_mtx;
     std::condition_variable service_resp_cv;
     service_response_message_store  resp_msg_store;
     uint8_t counter{0};

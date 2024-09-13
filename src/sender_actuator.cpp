@@ -69,8 +69,8 @@ void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstP
         return;
     }
 
-    std::unique_lock<std::mutex> lock{actuator_control_mtx, std::try_to_lock};
-    if (!lock.owns_lock()) {
+    std::unique_lock<std::mutex> handle_lock{handle_mtx, std::try_to_lock};
+    if (!handle_lock.owns_lock()) {
         return;
     }
 
@@ -97,8 +97,8 @@ bool sender_actuator::handle_init(
     scbdriver::InitLinearActuator::Request& req,
     scbdriver::InitLinearActuator::Response& res)
 {
-    std::unique_lock<std::mutex> lock(actuator_control_mtx, std::try_to_lock);
-    if (!lock.owns_lock()) {
+    std::unique_lock<std::mutex> handle_lock{handle_mtx, std::try_to_lock};
+    if (!handle_lock.owns_lock()) {
         return false;
     }
 
@@ -120,7 +120,8 @@ bool sender_actuator::handle_init(
 
     // wait for response
     {
-        auto const resp{wait_for_service_response(lock, request_id)};
+        std::unique_lock<std::mutex> notify_lock{notify_mtx};
+        auto const resp{wait_for_service_response(notify_lock, request_id)};
         if (!resp.has_value()) {
             return false;
         }
@@ -143,8 +144,8 @@ bool sender_actuator::handle_location(
         return false;
     }
 
-    std::unique_lock<std::mutex> lock(actuator_control_mtx, std::try_to_lock);
-    if (!lock.owns_lock()) {
+    std::unique_lock<std::mutex> handle_lock{handle_mtx, std::try_to_lock};
+    if (!handle_lock.owns_lock()) {
         return false;
     }
 
@@ -169,7 +170,8 @@ bool sender_actuator::handle_location(
 
     // wait for response
     {
-        auto const resp{wait_for_service_response(lock, request_id)};
+        std::unique_lock<std::mutex> notify_lock{notify_mtx};
+        auto const resp{wait_for_service_response(notify_lock, request_id)};
         if (!resp.has_value()) {
             return false;
         }
