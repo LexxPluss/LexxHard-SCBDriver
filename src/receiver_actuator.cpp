@@ -72,8 +72,8 @@ void receiver_actuator::handle_encoder_count(const can_frame &frame) const
         return;
     // ROS:[center,left,right], ROBOT:[left,center,right]
     int16_t
-        L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
-        C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
+        C{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
+        L{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
         R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
     std_msgs::Int32MultiArray msg;
     msg.data.resize(3);
@@ -89,8 +89,8 @@ void receiver_actuator::handle_current(const can_frame &frame) const
         return;
     // ROS:[center,left,right], ROBOT:[left,center,right]
     int16_t
-        L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
-        C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
+        C{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
+        L{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
         R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
     std_msgs::Float32MultiArray msg_current;
     msg_current.data.resize(3);
