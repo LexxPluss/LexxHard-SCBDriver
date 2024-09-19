@@ -29,12 +29,30 @@
 #include "scbdriver/LinearActuatorServiceResponse.h"
 #include "receiver_actuator.hpp"
 
-receiver_actuator::receiver_actuator(ros::NodeHandle &n)
+receiver_actuator::receiver_actuator(ros::NodeHandle &n, ros::NodeHandle &pn)
     : pub_encoder{n.advertise<std_msgs::Int32MultiArray>("/body_control/encoder_count", queue_size)},
       pub_current{n.advertise<std_msgs::Float32MultiArray>("/body_control/linear_actuator_current", queue_size)},
       pub_connection{n.advertise<std_msgs::Float32MultiArray>("/body_control/shelf_connection", queue_size)},
       pub_src_resp{n.advertise<scbdriver::LinearActuatorServiceResponse>("scbdriver/linear_actuator_service_response", queue_size)}
 {
+    pn.param<bool>("invert_center_actuator_direction", invert_center_actuator_direction,false);
+    pn.param<bool>("invert_left_actuator_direction", invert_left_actuator_direction,false);
+    pn.param<bool>("invert_right_actuator_direction", invert_right_actuator_direction,false);
+}
+
+int16_t receiver_actuator::adjust_encoder_count(size_t index, int16_t count) const
+{
+    bool const should_invert_tbl[] = {
+        invert_center_actuator_direction,
+        invert_left_actuator_direction,
+        invert_right_actuator_direction
+    };
+    bool const should_invert{should_invert_tbl[index]};
+
+    if(should_invert) {
+        return -count;
+    }
+    return count;
 }
 
 void receiver_actuator::handle(const can_frame &frame) const
@@ -54,14 +72,14 @@ void receiver_actuator::handle_encoder_count(const can_frame &frame) const
         return;
     // ROS:[center,left,right], ROBOT:[left,center,right]
     int16_t
-        L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
-        C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
+        C{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
+        L{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
         R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
     std_msgs::Int32MultiArray msg;
     msg.data.resize(3);
-    msg.data[0] = C;
-    msg.data[1] = L;
-    msg.data[2] = R;
+    msg.data[0] = adjust_encoder_count(0, C);
+    msg.data[1] = adjust_encoder_count(1, L);
+    msg.data[2] = adjust_encoder_count(2, R);
     pub_encoder.publish(msg);
 }
 
@@ -71,8 +89,8 @@ void receiver_actuator::handle_current(const can_frame &frame) const
         return;
     // ROS:[center,left,right], ROBOT:[left,center,right]
     int16_t
-        L{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
-        C{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
+        C{static_cast<int16_t>((frame.data[0] << 8) | frame.data[1])},
+        L{static_cast<int16_t>((frame.data[2] << 8) | frame.data[3])},
         R{static_cast<int16_t>((frame.data[4] << 8) | frame.data[5])};
     std_msgs::Float32MultiArray msg_current;
     msg_current.data.resize(3);

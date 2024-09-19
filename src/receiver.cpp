@@ -41,8 +41,8 @@ namespace {
 
 class handler {
 public:
-    handler(ros::NodeHandle &n)
-        : actuator{n}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n}, gpio{n}, tug_encoder{n} {}
+    handler(ros::NodeHandle &n,ros::NodeHandle &pn)
+        : actuator{n, pn}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n}, gpio{n}, tug_encoder{n} {}
     void handle(const can_frame &frame) {
         switch (frame.can_id) {
         case 0x100:
@@ -107,7 +107,8 @@ int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "receiver");
     ros::NodeHandle n;
-    handler handler{n};
+    ros::NodeHandle pn("~");
+    handler handler{n, pn};
     canif can;
     can.set_handler(
         [&](const can_frame &frame) {
