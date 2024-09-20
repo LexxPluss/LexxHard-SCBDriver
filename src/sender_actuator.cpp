@@ -213,3 +213,4 @@ sender_actuator::wait_for_service_response(std::unique_lock<std::mutex>& lock, u
 
   // node own data because service was done
   return node.mapped();
+}
