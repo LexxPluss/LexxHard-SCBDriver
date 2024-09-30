@@ -29,11 +29,13 @@
 
 struct can_frame;
 
-class receiver_uss {
+class receiver_uss
+{
 public:
-    receiver_uss(ros::NodeHandle &n);
-    void handle(const can_frame &frame) const;
+  receiver_uss(ros::NodeHandle& n);
+  void handle(const can_frame& frame) const;
+
 private:
-    ros::Publisher pub;
-    static constexpr uint32_t queue_size{10};
+  ros::Publisher pub;
+  static constexpr uint32_t queue_size{ 10 };
 };

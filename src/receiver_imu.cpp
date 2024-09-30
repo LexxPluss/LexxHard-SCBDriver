@@ -26,52 +26,50 @@
 #include <linux/can.h>
 #include "receiver_imu.hpp"
 
-receiver_imu::receiver_imu(ros::NodeHandle &n)
-    : pub{n.advertise<scbdriver::Imu>("/sensor_set/imu", queue_size)}
+receiver_imu::receiver_imu(ros::NodeHandle& n) : pub{ n.advertise<scbdriver::Imu>("/sensor_set/imu", queue_size) }
 {
 }
 
-void receiver_imu::handle(const can_frame &frame)
+void receiver_imu::handle(const can_frame& frame)
 {
-    if (fill_buffer(frame)) {
-        scbdriver::Imu msg;
-        decode(msg);
-        pub.publish(msg);
-    }
+  if (fill_buffer(frame))
+  {
     scbdriver::Imu msg;
+    decode(msg);
+    pub.publish(msg);
+  }
+  scbdriver::Imu msg;
 }
 
-bool receiver_imu::fill_buffer(const can_frame &frame)
+bool receiver_imu::fill_buffer(const can_frame& frame)
 {
-    if (frame.can_dlc != 7)
-        return false;
-    if (frame.can_id == 0x206) {
-        counter[0] = frame.data[6];
-        accel[0] = (frame.data[0] << 8) | frame.data[1];
-        accel[1] = (frame.data[2] << 8) | frame.data[3];
-        accel[2] = (frame.data[4] << 8) | frame.data[5];
-    } else if (frame.can_id == 0x207) {
-        counter[1] = frame.data[6];
-        gyro[0] = (frame.data[0] << 8) | frame.data[1];
-        gyro[1] = (frame.data[2] << 8) | frame.data[3];
-        gyro[2] = (frame.data[4] << 8) | frame.data[5];
-    }
-    return counter[0] == counter[1];
+  if (frame.can_dlc != 7)
+    return false;
+  if (frame.can_id == 0x206)
+  {
+    counter[0] = frame.data[6];
+    accel[0] = (frame.data[0] << 8) | frame.data[1];
+    accel[1] = (frame.data[2] << 8) | frame.data[3];
+    accel[2] = (frame.data[4] << 8) | frame.data[5];
+  }
+  else if (frame.can_id == 0x207)
+  {
+    counter[1] = frame.data[6];
+    gyro[0] = (frame.data[0] << 8) | frame.data[1];
+    gyro[1] = (frame.data[2] << 8) | frame.data[3];
+    gyro[2] = (frame.data[4] << 8) | frame.data[5];
+  }
+  return counter[0] == counter[1];
 }
 
-void receiver_imu::decode(scbdriver::Imu &msg) const
+void receiver_imu::decode(scbdriver::Imu& msg) const
 {
-    msg.accel.x = accel[0] * 1e-3f;
-    msg.accel.y = accel[1] * - 1e-3f;
-    msg.accel.z = accel[2] * 1e-3f;
-    // TODO: Need to refactor
-    msg.gyro.x = gyro[0] / 32.8 * M_PI / 180.0;
-    msg.gyro.y = gyro[1] / 32.8 * M_PI / 180.0;
-    msg.gyro.z = gyro[2] / 32.8 * M_PI / 180.0;
-    msg.ang.x =
-    msg.ang.y =
-    msg.ang.z =
-    msg.vel.x =
-    msg.vel.y =
-    msg.vel.z = 0.0;
+  msg.accel.x = accel[0] * 1e-3f;
+  msg.accel.y = accel[1] * -1e-3f;
+  msg.accel.z = accel[2] * 1e-3f;
+  // TODO: Need to refactor
+  msg.gyro.x = gyro[0] / 32.8 * M_PI / 180.0;
+  msg.gyro.y = gyro[1] / 32.8 * M_PI / 180.0;
+  msg.gyro.z = gyro[2] / 32.8 * M_PI / 180.0;
+  msg.ang.x = msg.ang.y = msg.ang.z = msg.vel.x = msg.vel.y = msg.vel.z = 0.0;
 }

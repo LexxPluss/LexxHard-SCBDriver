@@ -26,19 +26,18 @@
 #include "canif.hpp"
 #include "sender_dfu.hpp"
 
-sender_dfu::sender_dfu(ros::NodeHandle &n, canif &can)
-    : sub{n.subscribe("/lexxhard/dfu_data", queue_size, &sender_dfu::handle, this)},
-      can{can}
+sender_dfu::sender_dfu(ros::NodeHandle& n, canif& can)
+  : sub{ n.subscribe("/lexxhard/dfu_data", queue_size, &sender_dfu::handle, this) }, can{ can }
 {
 }
 
-void sender_dfu::handle(const std_msgs::UInt8MultiArray::ConstPtr &msg) const
+void sender_dfu::handle(const std_msgs::UInt8MultiArray::ConstPtr& msg) const
 {
-    static constexpr auto len{8};
-    can_frame frame{
-        .can_id{0x20d},
-        .can_dlc{len},
-    };
-    std::copy_n(std::begin(msg->data), len, std::begin(frame.data));
-    can.send(frame);
+  static constexpr auto len{ 8 };
+  can_frame frame{
+    .can_id{ 0x20d },
+    .can_dlc{ len },
+  };
+  std::copy_n(std::begin(msg->data), len, std::begin(frame.data));
+  can.send(frame);
 }

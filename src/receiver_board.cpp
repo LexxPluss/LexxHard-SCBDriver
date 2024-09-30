@@ -31,89 +31,87 @@
 #include "std_msgs/UInt8.h"
 #include "receiver_board.hpp"
 
-receiver_board::receiver_board(ros::NodeHandle &n)
-    : pub_bumper{n.advertise<std_msgs::ByteMultiArray>("/sensor_set/bumper", queue_size)},
-      pub_emergency_switch{n.advertise<std_msgs::Bool>("/sensor_set/emergency_switch", queue_size)},
-      pub_emergency_stop{n.advertise<std_msgs::Bool>("/body_control/emergency_stop", queue_size)},
-      pub_charge{n.advertise<std_msgs::Byte>("/body_control/charge_status", queue_size)},
-      pub_power{n.advertise<std_msgs::Byte>("/body_control/power_state", queue_size)},
-      pub_charge_delay{n.advertise<std_msgs::UInt8>("/body_control/charge_heartbeat_delay", queue_size)},
-      pub_charge_voltage{n.advertise<std_msgs::Float32>("/body_control/charge_connector_voltage", queue_size)},
-      pub_safety_lidar{n.advertise<std_msgs::Bool>("/sensor_set/safety_lidar", queue_size)}
+receiver_board::receiver_board(ros::NodeHandle& n)
+  : pub_bumper{ n.advertise<std_msgs::ByteMultiArray>("/sensor_set/bumper", queue_size) }
+  , pub_emergency_switch{ n.advertise<std_msgs::Bool>("/sensor_set/emergency_switch", queue_size) }
+  , pub_emergency_stop{ n.advertise<std_msgs::Bool>("/body_control/emergency_stop", queue_size) }
+  , pub_charge{ n.advertise<std_msgs::Byte>("/body_control/charge_status", queue_size) }
+  , pub_power{ n.advertise<std_msgs::Byte>("/body_control/power_state", queue_size) }
+  , pub_charge_delay{ n.advertise<std_msgs::UInt8>("/body_control/charge_heartbeat_delay", queue_size) }
+  , pub_charge_voltage{ n.advertise<std_msgs::Float32>("/body_control/charge_connector_voltage", queue_size) }
+  , pub_safety_lidar{ n.advertise<std_msgs::Bool>("/sensor_set/safety_lidar", queue_size) }
 {
 }
 
-void receiver_board::handle(const can_frame &frame) const
+void receiver_board::handle(const can_frame& frame) const
 {
-    if (frame.can_dlc != 6)
-        return;
-    publish_bumper(frame);
-    publish_emergency_switch(frame);
-    publish_emergency_stop(frame);
-    publish_charge(frame);
-    publish_power(frame);
-    publish_charge_delay(frame);
-    publish_charge_voltage(frame);
-    publish_safety_lidar(frame);
+  if (frame.can_dlc != 6)
+    return;
+  publish_bumper(frame);
+  publish_emergency_switch(frame);
+  publish_emergency_stop(frame);
+  publish_charge(frame);
+  publish_power(frame);
+  publish_charge_delay(frame);
+  publish_charge_voltage(frame);
+  publish_safety_lidar(frame);
 }
 
-void receiver_board::publish_bumper(const can_frame &frame) const
+void receiver_board::publish_bumper(const can_frame& frame) const
 {
-    std_msgs::ByteMultiArray msg;
-    msg.data.resize(2);
-    msg.data[0] = (frame.data[0] & 0b10000000) != 0;
-    msg.data[1] = (frame.data[0] & 0b01000000) != 0;
-    pub_bumper.publish(msg);
+  std_msgs::ByteMultiArray msg;
+  msg.data.resize(2);
+  msg.data[0] = (frame.data[0] & 0b10000000) != 0;
+  msg.data[1] = (frame.data[0] & 0b01000000) != 0;
+  pub_bumper.publish(msg);
 }
 
-void receiver_board::publish_emergency_switch(const can_frame &frame) const
+void receiver_board::publish_emergency_switch(const can_frame& frame) const
 {
-    std_msgs::Bool msg;
-    msg.data = (frame.data[0] & 0b00110000) != 0;
-    pub_emergency_switch.publish(msg);
+  std_msgs::Bool msg;
+  msg.data = (frame.data[0] & 0b00110000) != 0;
+  pub_emergency_switch.publish(msg);
 }
 
-void receiver_board::publish_emergency_stop(const can_frame &frame) const
+void receiver_board::publish_emergency_stop(const can_frame& frame) const
 {
-    std_msgs::Bool msg;
-    msg.data = (frame.data[0] & 0b00000100) != 0;
-    pub_emergency_stop.publish(msg);
+  std_msgs::Bool msg;
+  msg.data = (frame.data[0] & 0b00000100) != 0;
+  pub_emergency_stop.publish(msg);
 }
 
-void receiver_board::publish_charge(const can_frame &frame) const
+void receiver_board::publish_charge(const can_frame& frame) const
 {
-    static constexpr uint8_t MANUAL_CHARGE_STATE{2}, AUTO_CHARGE_STATE{1};
-    std_msgs::Byte msg;
-    msg.data = frame.data[1] == MANUAL_CHARGE_STATE ? 2
-             : frame.data[1] == AUTO_CHARGE_STATE   ? 1
-                                                    : 0;
-    pub_charge.publish(msg);
+  static constexpr uint8_t MANUAL_CHARGE_STATE{ 2 }, AUTO_CHARGE_STATE{ 1 };
+  std_msgs::Byte msg;
+  msg.data = frame.data[1] == MANUAL_CHARGE_STATE ? 2 : frame.data[1] == AUTO_CHARGE_STATE ? 1 : 0;
+  pub_charge.publish(msg);
 }
 
-void receiver_board::publish_power(const can_frame &frame) const
+void receiver_board::publish_power(const can_frame& frame) const
 {
-    std_msgs::Byte msg;
-    msg.data = (frame.data[0] & 0b00001000) != 0 ? frame.data[2] : 0;
-    pub_power.publish(msg);
+  std_msgs::Byte msg;
+  msg.data = (frame.data[0] & 0b00001000) != 0 ? frame.data[2] : 0;
+  pub_power.publish(msg);
 }
 
-void receiver_board::publish_charge_delay(const can_frame &frame) const
+void receiver_board::publish_charge_delay(const can_frame& frame) const
 {
-    std_msgs::UInt8 msg;
-    msg.data = frame.data[3];
-    pub_charge_delay.publish(msg);
+  std_msgs::UInt8 msg;
+  msg.data = frame.data[3];
+  pub_charge_delay.publish(msg);
 }
 
-void receiver_board::publish_charge_voltage(const can_frame &frame) const
+void receiver_board::publish_charge_voltage(const can_frame& frame) const
 {
-    std_msgs::Float32 msg;
-    msg.data = ((frame.data[4] << 8) | frame.data[5]) * 1e-3f;
-    pub_charge_voltage.publish(msg);
+  std_msgs::Float32 msg;
+  msg.data = ((frame.data[4] << 8) | frame.data[5]) * 1e-3f;
+  pub_charge_voltage.publish(msg);
 }
 
-void receiver_board::publish_safety_lidar(const can_frame &frame) const
+void receiver_board::publish_safety_lidar(const can_frame& frame) const
 {
-    std_msgs::Bool msg;
-    msg.data = (frame.data[0] & 0b00000010) != 0;
-    pub_safety_lidar.publish(msg);
+  std_msgs::Bool msg;
+  msg.data = (frame.data[0] & 0b00000010) != 0;
+  pub_safety_lidar.publish(msg);
 }

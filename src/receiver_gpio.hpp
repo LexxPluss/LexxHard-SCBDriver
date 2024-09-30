@@ -25,17 +25,19 @@
 
 #pragma once
 
-#include<array>
+#include <array>
 
 #include "ros/ros.h"
 
 struct can_frame;
 
-class receiver_gpio {
+class receiver_gpio
+{
 public:
-    receiver_gpio(ros::NodeHandle &n);
-    void handle(const can_frame &frame) const;
+  receiver_gpio(ros::NodeHandle& n);
+  void handle(const can_frame& frame) const;
+
 private:
-    std::array<ros::Publisher, 4> pubs;
-    static constexpr uint32_t queue_size{10};
+  std::array<ros::Publisher, 4> pubs;
+  static constexpr uint32_t queue_size{ 10 };
 };

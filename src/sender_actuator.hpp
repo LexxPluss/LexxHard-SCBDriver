@@ -40,59 +40,58 @@
 
 class canif;
 
-class sender_actuator {
+class sender_actuator
+{
 public:
-    sender_actuator(ros::NodeHandle &n, ros::NodeHandle &pn, canif &can);
+  sender_actuator(ros::NodeHandle& n, ros::NodeHandle& pn, canif& can);
+
 private:
-    class service_response_message_store {
-    public:
-        using value_type = scbdriver::LinearActuatorServiceResponse;
-        using container_type = std::map<uint8_t, value_type>;
+  class service_response_message_store
+  {
+  public:
+    using value_type = scbdriver::LinearActuatorServiceResponse;
+    using container_type = std::map<uint8_t, value_type>;
 
-        void insert(value_type const& msg)
-        {
-            std::lock_guard<std::mutex> lock{mtx};
-            store[msg.counter] = msg;
-        }
+    void insert(value_type const& msg)
+    {
+      std::lock_guard<std::mutex> lock{ mtx };
+      store[msg.counter] = msg;
+    }
 
-        container_type::node_type extract(uint8_t counter)
-        {
-            std::lock_guard<std::mutex> lock{mtx};
-            return store.extract(counter);
-        }
+    container_type::node_type extract(uint8_t counter)
+    {
+      std::lock_guard<std::mutex> lock{ mtx };
+      return store.extract(counter);
+    }
 
-    private:
-        container_type store;
-        std::mutex mtx;
-    };
+  private:
+    container_type store;
+    std::mutex mtx;
+  };
 
-    void handle(const scbdriver::LinearActuatorControlArray::ConstPtr& msg);
-    void handle_srv_resp(const scbdriver::LinearActuatorServiceResponse::ConstPtr& msg);
-    bool handle_init(
-        scbdriver::InitLinearActuator::Request& req,
-        scbdriver::InitLinearActuator::Response& res);
-    bool handle_location(
-        scbdriver::LinearActuatorLocation::Request& req,
-        scbdriver::LinearActuatorLocation::Response& res);
-    std::optional<scbdriver::LinearActuatorServiceResponse> wait_for_service_response(
-        std::unique_lock<std::mutex>& lock,
-        uint8_t counter);
+  void handle(const scbdriver::LinearActuatorControlArray::ConstPtr& msg);
+  void handle_srv_resp(const scbdriver::LinearActuatorServiceResponse::ConstPtr& msg);
+  bool handle_init(scbdriver::InitLinearActuator::Request& req, scbdriver::InitLinearActuator::Response& res);
+  bool handle_location(scbdriver::LinearActuatorLocation::Request& req,
+                       scbdriver::LinearActuatorLocation::Response& res);
+  std::optional<scbdriver::LinearActuatorServiceResponse> wait_for_service_response(std::unique_lock<std::mutex>& lock,
+                                                                                    uint8_t counter);
 
-    int8_t adjust_direction(size_t index, int8_t direction) const;
-    ros::Subscriber sub_actuator;
-    ros::Subscriber sub_srv_resp;
-    ros::ServiceServer srv_init;
-    ros::ServiceServer srv_location;
-    canif &can;
-    std::mutex handle_mtx;
-    std::mutex notify_mtx;
-    std::condition_variable service_resp_cv;
-    service_response_message_store  resp_msg_store;
-    uint8_t counter{0};
-    bool invert_center_actuator_direction;
-    bool invert_left_actuator_direction;
-    bool invert_right_actuator_direction;
+  int8_t adjust_direction(size_t index, int8_t direction) const;
+  ros::Subscriber sub_actuator;
+  ros::Subscriber sub_srv_resp;
+  ros::ServiceServer srv_init;
+  ros::ServiceServer srv_location;
+  canif& can;
+  std::mutex handle_mtx;
+  std::mutex notify_mtx;
+  std::condition_variable service_resp_cv;
+  service_response_message_store resp_msg_store;
+  uint8_t counter{ 0 };
+  bool invert_center_actuator_direction;
+  bool invert_left_actuator_direction;
+  bool invert_right_actuator_direction;
 
-    static constexpr uint32_t queue_size{10};
-    static constexpr std::chrono::seconds service_response_timeout{10};
+  static constexpr uint32_t queue_size{ 10 };
+  static constexpr std::chrono::seconds service_response_timeout{ 10 };
 };

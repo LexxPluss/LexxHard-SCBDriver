@@ -39,88 +39,96 @@ canif::canif()
 
 canif::~canif()
 {
+  term();
+}
+
+void canif::set_handler(std::function<void(const can_frame& frame)> handler)
+{
+  this->handler = handler;
+}
+
+int canif::init(const can_filter* filter, size_t nfilter)
+{
+  sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+  if (sock < 0)
+  {
+    std::cerr << "socket(CAN) failed" << std::endl;
+    return -1;
+  }
+  ifreq ifr;
+  strncpy(ifr.ifr_name, ifname.c_str(), IFNAMSIZ - 1);
+  if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
+  {
+    std::cerr << "ioctl(SIOCGIFINDEX) failed" << std::endl;
     term();
-}
-
-void canif::set_handler(std::function<void(const can_frame &frame)> handler)
-{
-    this->handler = handler;
-}
-
-int canif::init(const can_filter *filter, size_t nfilter)
-{
-    sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-    if (sock < 0) {
-        std::cerr << "socket(CAN) failed" << std::endl;
-        return -1;
-    }
-    ifreq ifr;
-    strncpy(ifr.ifr_name, ifname.c_str(), IFNAMSIZ - 1);
-    if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
-        std::cerr << "ioctl(SIOCGIFINDEX) failed" << std::endl;
-        term();
-        return -1;
-    }
-    if (setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FILTER, filter, nfilter) < 0) {
-        std::cerr << "setsockopt(CAN_RAW_FILTER) failed" << std::endl;
-        term();
-        return -1;
-    }
-    sockaddr_can addr{
-        .can_family{AF_CAN},
-        .can_ifindex{ifr.ifr_ifindex}
-    };
-    if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof addr) < 0) {
-        std::cerr << "bind(CAN) failed" << std::endl;
-        term();
-        return -1;
-    }
-    if (unsigned long nonblock{1}; ioctl(sock, FIONBIO, &nonblock) < 0) {
-        std::cerr << "ioctl(FIONBIO) failed" << std::endl;
-        term();
-        return -1;
-    }
-    return 0;
+    return -1;
+  }
+  if (setsockopt(sock, SOL_CAN_RAW, CAN_RAW_FILTER, filter, nfilter) < 0)
+  {
+    std::cerr << "setsockopt(CAN_RAW_FILTER) failed" << std::endl;
+    term();
+    return -1;
+  }
+  sockaddr_can addr{ .can_family{ AF_CAN }, .can_ifindex{ ifr.ifr_ifindex } };
+  if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof addr) < 0)
+  {
+    std::cerr << "bind(CAN) failed" << std::endl;
+    term();
+    return -1;
+  }
+  if (unsigned long nonblock{ 1 }; ioctl(sock, FIONBIO, &nonblock) < 0)
+  {
+    std::cerr << "ioctl(FIONBIO) failed" << std::endl;
+    term();
+    return -1;
+  }
+  return 0;
 }
 
 void canif::term()
 {
-    if (sock >= 0) {
-        close(sock);
-        sock = -1;
-    }
+  if (sock >= 0)
+  {
+    close(sock);
+    sock = -1;
+  }
 }
 
 int canif::poll(int timeout_ms) const
 {
-    pollfd fds{
-        .fd{sock},
-        .events{POLLIN}
-    };
-    for (int i{0}; i < 10; ++i) {
-        if (auto ret{::poll(&fds, 1, timeout_ms)}; ret < 0) {
-            std::cerr << "poll(CAN) failed" << std::endl;
-            return -1;
-        } else if (ret == 0) {
-            return 0;
-        } else if (fds.revents & POLLIN) {
-            can_frame frame;
-            if (read(sock, &frame, sizeof frame) < 0) {
-                std::cerr << "read(CAN) failed" << std::endl;
-                return -1;
-            }
-            if (handler)
-                handler(frame);
-        }
+  pollfd fds{ .fd{ sock }, .events{ POLLIN } };
+  for (int i{ 0 }; i < 10; ++i)
+  {
+    if (auto ret{ ::poll(&fds, 1, timeout_ms) }; ret < 0)
+    {
+      std::cerr << "poll(CAN) failed" << std::endl;
+      return -1;
     }
-    return 0;
+    else if (ret == 0)
+    {
+      return 0;
+    }
+    else if (fds.revents & POLLIN)
+    {
+      can_frame frame;
+      if (read(sock, &frame, sizeof frame) < 0)
+      {
+        std::cerr << "read(CAN) failed" << std::endl;
+        return -1;
+      }
+      if (handler)
+        handler(frame);
+    }
+  }
+  return 0;
 }
 
-int canif::send(const can_frame &frame) const
+int canif::send(const can_frame& frame) const
 {
-    if (write(sock, &frame, sizeof frame) < 0) {
-        std::cerr << "write(CAN) failed" << std::endl;
-        return -1;
-    }
-    return 0;
+  if (write(sock, &frame, sizeof frame) < 0)
+  {
+    std::cerr << "write(CAN) failed" << std::endl;
+    return -1;
+  }
+  return 0;
 }

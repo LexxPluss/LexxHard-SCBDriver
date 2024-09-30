@@ -27,40 +27,44 @@
 #include "canif.hpp"
 #include "sender_board.hpp"
 
-sender_board::sender_board(ros::NodeHandle &n, canif &can)
-    : sub_ems{n.subscribe("/control/request_emergency_stop", queue_size, &sender_board::handle_ems, this)},
-      sub_power_off{n.subscribe("/control/request_power_off", queue_size, &sender_board::handle_power_off, this)},
-      sub_wheel_off{n.subscribe("/lexxhard/setup", queue_size, &sender_board::handle_wheel_off, this)},
-      sub_heartbeat{n.subscribe("/lexxhard/mainboard_messenger_heartbeat", queue_size, &sender_board::handle_heartbeat, this)},
-      can{can}
+sender_board::sender_board(ros::NodeHandle& n, canif& can)
+  : sub_ems{ n.subscribe("/control/request_emergency_stop", queue_size, &sender_board::handle_ems, this) }
+  , sub_power_off{ n.subscribe("/control/request_power_off", queue_size, &sender_board::handle_power_off, this) }
+  , sub_wheel_off{ n.subscribe("/lexxhard/setup", queue_size, &sender_board::handle_wheel_off, this) }
+  , sub_heartbeat{ n.subscribe("/lexxhard/mainboard_messenger_heartbeat", queue_size, &sender_board::handle_heartbeat,
+                               this) }
+  , can{ can }
 {
 }
 
-void sender_board::handle_ems(const std_msgs::Bool::ConstPtr &msg)
+void sender_board::handle_ems(const std_msgs::Bool::ConstPtr& msg)
 {
-    frame.data[0] = msg->data;
-    can.send(frame);
+  frame.data[0] = msg->data;
+  can.send(frame);
 }
 
-void sender_board::handle_power_off(const std_msgs::Bool::ConstPtr &msg)
+void sender_board::handle_power_off(const std_msgs::Bool::ConstPtr& msg)
 {
-    frame.data[1] = msg->data;
-    can.send(frame);
+  frame.data[1] = msg->data;
+  can.send(frame);
 }
 
-void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr &msg)
+void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr& msg)
 {
-    if (msg->data == "wheel_poweroff") {
-        frame.data[2] = 1;   
-    } else {
-        frame.data[2] = 0;
-    }
+  if (msg->data == "wheel_poweroff")
+  {
+    frame.data[2] = 1;
+  }
+  else
+  {
+    frame.data[2] = 0;
+  }
 
-    can.send(frame);
+  can.send(frame);
 }
 
-void sender_board::handle_heartbeat(const std_msgs::Bool::ConstPtr &msg)
+void sender_board::handle_heartbeat(const std_msgs::Bool::ConstPtr& msg)
 {
-    frame.data[3] = msg->data;
-    can.send(frame);
+  frame.data[3] = msg->data;
+  can.send(frame);
 }

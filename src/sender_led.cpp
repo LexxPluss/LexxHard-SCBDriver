@@ -27,85 +27,102 @@
 #include "canif.hpp"
 #include "sender_led.hpp"
 
-sender_led::sender_led(ros::NodeHandle &n, canif &can)
-    : sub{n.subscribe("/body_control/led", queue_size, &sender_led::handle, this)},
-      can{can}
+sender_led::sender_led(ros::NodeHandle& n, canif& can)
+  : sub{ n.subscribe("/body_control/led", queue_size, &sender_led::handle, this) }, can{ can }
 {
 }
 
 void sender_led::handle(const std_msgs::String::ConstPtr& msg) const
 {
-    uint16_t count_per_minutes{0};
-    uint8_t pattern{0}, rgb[3]{0, 0, 0};
-    decode(msg->data, pattern, count_per_minutes, rgb);
-    can_frame frame{
-        .can_id{0x205},
-        .can_dlc{6},
-    };
-    frame.data[0] = pattern;
-    frame.data[1] = count_per_minutes >> 8;
-    frame.data[2] = count_per_minutes;
-    frame.data[3] = rgb[0];
-    frame.data[4] = rgb[1];
-    frame.data[5] = rgb[2];
-    can.send(frame);
+  uint16_t count_per_minutes{ 0 };
+  uint8_t pattern{ 0 }, rgb[3]{ 0, 0, 0 };
+  decode(msg->data, pattern, count_per_minutes, rgb);
+  can_frame frame{
+    .can_id{ 0x205 },
+    .can_dlc{ 6 },
+  };
+  frame.data[0] = pattern;
+  frame.data[1] = count_per_minutes >> 8;
+  frame.data[2] = count_per_minutes;
+  frame.data[3] = rgb[0];
+  frame.data[4] = rgb[1];
+  frame.data[5] = rgb[2];
+  can.send(frame);
 }
 
-void sender_led::decode(const std::string &data,
-                        uint8_t &pattern,
-                        uint16_t &count_per_minutes,
-                        uint8_t rgb[3]) const
+void sender_led::decode(const std::string& data, uint8_t& pattern, uint16_t& count_per_minutes, uint8_t rgb[3]) const
 {
-    // The following patterns are fixed
-    if      (data == "emergency_stop")  pattern = 1;
-    else if (data == "amr_mode")        pattern = 2;
-    else if (data == "agv_mode")        pattern = 3;
-    else if (data == "mission_pause")   pattern = 4;
-    else if (data == "path_blocked")    pattern = 5;
-    else if (data == "manual_drive")    pattern = 6;
-    else if (data == "charging")        pattern = 10;
-    else if (data == "waiting_for_job") pattern = 11;
-    else if (data == "left_winker")     pattern = 12;
-    else if (data == "right_winker")    pattern = 13;
-    else if (data == "both_winker")     pattern = 14;
-    else if (data == "move_actuator")   pattern = 15;
-    else if (data == "charge_level")    pattern = 16;
-    else if (data == "showtime")        pattern = 100;
-    else if (data == "lockdown")        pattern = 101;
-    // And if not, we are receiving a string in the following format:
-    // "<hex color> <pattern> <blink count per min>"
-    else if (data[0] == '#')            decode_rgb(data, pattern, count_per_minutes, rgb);
-    else std::cerr << "sender_led::handle(): unknown pattern: " << data << std::endl;
+  // The following patterns are fixed
+  if (data == "emergency_stop")
+    pattern = 1;
+  else if (data == "amr_mode")
+    pattern = 2;
+  else if (data == "agv_mode")
+    pattern = 3;
+  else if (data == "mission_pause")
+    pattern = 4;
+  else if (data == "path_blocked")
+    pattern = 5;
+  else if (data == "manual_drive")
+    pattern = 6;
+  else if (data == "charging")
+    pattern = 10;
+  else if (data == "waiting_for_job")
+    pattern = 11;
+  else if (data == "left_winker")
+    pattern = 12;
+  else if (data == "right_winker")
+    pattern = 13;
+  else if (data == "both_winker")
+    pattern = 14;
+  else if (data == "move_actuator")
+    pattern = 15;
+  else if (data == "charge_level")
+    pattern = 16;
+  else if (data == "showtime")
+    pattern = 100;
+  else if (data == "lockdown")
+    pattern = 101;
+  // And if not, we are receiving a string in the following format:
+  // "<hex color> <pattern> <blink count per min>"
+  else if (data[0] == '#')
+    decode_rgb(data, pattern, count_per_minutes, rgb);
+  else
+    std::cerr << "sender_led::handle(): unknown pattern: " << data << std::endl;
 }
 
 // For an explanation of how to send data to this function, refer here:
 // https://github.com/LexxPluss/LexxAuto/pull/3275#issuecomment-2137190256
 // or here:
 // https://www.notion.so/lexxpluss/LED-Pattern-5e52eb3c0c3f41fbb84d6465c4d154cc
-void sender_led::decode_rgb(const std::string &data,
-                            uint8_t &pattern,
-                            uint16_t &count_per_minutes,
+void sender_led::decode_rgb(const std::string& data, uint8_t& pattern, uint16_t& count_per_minutes,
                             uint8_t rgb[3]) const
 {
-    std::istringstream is{data.substr(1)};
-    uint32_t rgb24{0};
-    std::string type;
-    is >> std::hex >> rgb24
-                   >> type
-       >> std::dec >> count_per_minutes;
-    rgb[0] = rgb24 >> 16;
-    rgb[1] = rgb24 >>  8;
-    rgb[2] = rgb24;
-    if (count_per_minutes == 0) {
-        pattern = 200;
-    } else {
-        if (type == "blink") {
-            pattern = 201;
-        } else if (type == "breath") {
-            pattern = 202;
-        } else {
-            pattern = 200;
-            count_per_minutes = 0;
-        }
+  std::istringstream is{ data.substr(1) };
+  uint32_t rgb24{ 0 };
+  std::string type;
+  is >> std::hex >> rgb24 >> type >> std::dec >> count_per_minutes;
+  rgb[0] = rgb24 >> 16;
+  rgb[1] = rgb24 >> 8;
+  rgb[2] = rgb24;
+  if (count_per_minutes == 0)
+  {
+    pattern = 200;
+  }
+  else
+  {
+    if (type == "blink")
+    {
+      pattern = 201;
     }
+    else if (type == "breath")
+    {
+      pattern = 202;
+    }
+    else
+    {
+      pattern = 200;
+      count_per_minutes = 0;
+    }
+  }
 }

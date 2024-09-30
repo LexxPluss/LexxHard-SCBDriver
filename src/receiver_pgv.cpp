@@ -27,59 +27,61 @@
 #include <algorithm>
 #include "receiver_pgv.hpp"
 
-receiver_pgv::receiver_pgv(ros::NodeHandle &n)
-    : pub{n.advertise<scbdriver::PositionGuideVision>("/sensor_set/pgv", queue_size)}
+receiver_pgv::receiver_pgv(ros::NodeHandle& n)
+  : pub{ n.advertise<scbdriver::PositionGuideVision>("/sensor_set/pgv", queue_size) }
 {
 }
 
-void receiver_pgv::handle(const can_frame &frame)
+void receiver_pgv::handle(const can_frame& frame)
 {
-    if (fill_buffer(frame) && validate()) {
-        scbdriver::PositionGuideVision msg;
-        decode(msg);
-        pub.publish(msg);
-    }
+  if (fill_buffer(frame) && validate())
+  {
+    scbdriver::PositionGuideVision msg;
+    decode(msg);
+    pub.publish(msg);
+  }
 }
 
-bool receiver_pgv::fill_buffer(const can_frame &frame)
+bool receiver_pgv::fill_buffer(const can_frame& frame)
 {
-    if (frame.can_dlc != 8)
-        return false;
-    if (frame.can_id == 0x200) {
-        counter[0] = frame.data[7];
-        std::copy_n(frame.data, 7, buffer);
-    } else if (frame.can_id == 0x201) {
-        counter[1] = frame.data[7];
-        std::copy_n(frame.data, 7, buffer + 7);
-    } else if (frame.can_id == 0x202) {
-        counter[2] = frame.data[7];
-        std::copy_n(frame.data, 7, buffer + 14);
-    }
-    return counter[0] == counter[1] && counter[1] == counter[2];
+  if (frame.can_dlc != 8)
+    return false;
+  if (frame.can_id == 0x200)
+  {
+    counter[0] = frame.data[7];
+    std::copy_n(frame.data, 7, buffer);
+  }
+  else if (frame.can_id == 0x201)
+  {
+    counter[1] = frame.data[7];
+    std::copy_n(frame.data, 7, buffer + 7);
+  }
+  else if (frame.can_id == 0x202)
+  {
+    counter[2] = frame.data[7];
+    std::copy_n(frame.data, 7, buffer + 14);
+  }
+  return counter[0] == counter[1] && counter[1] == counter[2];
 }
 
 bool receiver_pgv::validate() const
 {
-    uint8_t check{buffer[0]};
-    for (int i{1}; i < 20; ++i)
-        check ^= buffer[i];
-    return check == buffer[20];
+  uint8_t check{ buffer[0] };
+  for (int i{ 1 }; i < 20; ++i)
+    check ^= buffer[i];
+  return check == buffer[20];
 }
 
-void receiver_pgv::decode(scbdriver::PositionGuideVision &msg) const
+void receiver_pgv::decode(scbdriver::PositionGuideVision& msg) const
 {
-    uint16_t ang_10x{
-        static_cast<uint16_t>(
-            ((buffer[10] & 0x7f) << 7) |
-             (buffer[11] & 0x7f)
-        )
-    };
-    float ang{static_cast<float>(ang_10x) * 0.1f};
-    if (ang < 180.0f)
-        ang *= -1.0f;
-    else
-        ang = 360.0f - ang;
-    msg.tag_detected = (buffer[1] & 0x40) != 0;
+  uint16_t ang_10x{ static_cast<uint16_t>(((buffer[10] & 0x7f) << 7) | (buffer[11] & 0x7f)) };
+  float ang{ static_cast<float>(ang_10x) * 0.1f };
+  if (ang < 180.0f)
+    ang *= -1.0f;
+  else
+    ang = 360.0f - ang;
+  msg.tag_detected = (buffer[1] & 0x40) != 0;
+  // clang-format off
     if (msg.tag_detected) {
         int32_t xps{
             static_cast<int32_t>(
@@ -123,6 +125,7 @@ void receiver_pgv::decode(scbdriver::PositionGuideVision &msg) const
         ((buffer[6] & 0x7f) << 7) |
         (buffer[7] & 0x7f)
     };
+    // clang-format off
     msg.angle = ang * M_PI / 180.0f;
     msg.y_pos = static_cast<float>(yps) * 1e-4f;
     msg.direction = direction;

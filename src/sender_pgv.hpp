@@ -30,12 +30,14 @@
 
 class canif;
 
-class sender_pgv {
+class sender_pgv
+{
 public:
-    sender_pgv(ros::NodeHandle &n, canif &can);
+  sender_pgv(ros::NodeHandle& n, canif& can);
+
 private:
-    void handle(const std_msgs::UInt8::ConstPtr& msg) const;
-    ros::Subscriber sub;
-    canif &can;
-    static constexpr uint32_t queue_size{10};
+  void handle(const std_msgs::UInt8::ConstPtr& msg) const;
+  ros::Subscriber sub;
+  canif& can;
+  static constexpr uint32_t queue_size{ 10 };
 };

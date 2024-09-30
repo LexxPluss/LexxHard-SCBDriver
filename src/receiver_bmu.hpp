@@ -30,27 +30,32 @@
 
 struct can_frame;
 
-class receiver_bmu {
+class receiver_bmu
+{
 public:
-    receiver_bmu(ros::NodeHandle &n);
-    void handle(const can_frame &frame);
+  receiver_bmu(ros::NodeHandle& n);
+  void handle(const can_frame& frame);
+
 private:
-    void decode(scbdriver::Battery &msg) const;
-    ros::Publisher pub;
-    struct {
-        struct {
-            uint16_t value;
-            uint8_t id;
-        } max_voltage, min_voltage, max_cell_voltage, min_cell_voltage;
-        struct {
-            int16_t value;
-            uint8_t id;
-        } max_temp, min_temp, max_current, min_current;
-        int16_t fet_temp, pack_current;
-        uint16_t charging_current, pack_voltage, design_capacity, full_charge_capacity, remain_capacity;
-        uint16_t manufacturing, inspection, serial;
-        uint8_t mod_status1, mod_status2, bmu_status, asoc, rsoc, soh;
-        uint8_t bmu_fw_ver, mod_fw_ver, serial_config, parallel_config, bmu_alarm1, bmu_alarm2;
-    } bmudata;
-    static constexpr uint32_t queue_size{10};
+  void decode(scbdriver::Battery& msg) const;
+  ros::Publisher pub;
+  struct
+  {
+    struct
+    {
+      uint16_t value;
+      uint8_t id;
+    } max_voltage, min_voltage, max_cell_voltage, min_cell_voltage;
+    struct
+    {
+      int16_t value;
+      uint8_t id;
+    } max_temp, min_temp, max_current, min_current;
+    int16_t fet_temp, pack_current;
+    uint16_t charging_current, pack_voltage, design_capacity, full_charge_capacity, remain_capacity;
+    uint16_t manufacturing, inspection, serial;
+    uint8_t mod_status1, mod_status2, bmu_status, asoc, rsoc, soh;
+    uint8_t bmu_fw_ver, mod_fw_ver, serial_config, parallel_config, bmu_alarm1, bmu_alarm2;
+  } bmudata;
+  static constexpr uint32_t queue_size{ 10 };
 };

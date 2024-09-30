@@ -30,20 +30,16 @@
 
 class canif;
 
-class sender_led {
+class sender_led
+{
 public:
-    sender_led(ros::NodeHandle &n, canif &can);
+  sender_led(ros::NodeHandle& n, canif& can);
+
 private:
-    void handle(const std_msgs::String::ConstPtr& msg) const;
-    void decode(const std::string &data,
-                uint8_t &pattern,
-                uint16_t &count_per_minutes,
-                uint8_t rgb[3]) const;
-    void decode_rgb(const std::string &data,
-                    uint8_t &pattern,
-                    uint16_t &count_per_minutes,
-                    uint8_t rgb[3]) const;
-    ros::Subscriber sub;
-    canif &can;
-    static constexpr uint32_t queue_size{10};
+  void handle(const std_msgs::String::ConstPtr& msg) const;
+  void decode(const std::string& data, uint8_t& pattern, uint16_t& count_per_minutes, uint8_t rgb[3]) const;
+  void decode_rgb(const std::string& data, uint8_t& pattern, uint16_t& count_per_minutes, uint8_t rgb[3]) const;
+  ros::Subscriber sub;
+  canif& can;
+  static constexpr uint32_t queue_size{ 10 };
 };
