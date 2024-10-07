@@ -113,3 +113,10 @@ target_link_libraries(sender
 target_link_libraries(updater
   ${catkin_LIBRARIES}
 )
+
+install(TARGETS receiver
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+install(TARGETS sender
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
