@@ -34,7 +34,7 @@
 receiver_board::receiver_board(ros::NodeHandle& n)
   : pub_bumper{ n.advertise<std_msgs::ByteMultiArray>("/sensor_set/bumper", queue_size) }
   , pub_emergency_switch{ n.advertise<std_msgs::Bool>("/sensor_set/emergency_switch", queue_size) }
-  , pub_emergency_stop{ n.advertise<std_msgs::Bool>("/body_control/emergency_stop", queue_size) }
+  , pub_emergency_state{ n.advertise<std_msgs::Bool>("/body_control/emergency_state", queue_size) }
   , pub_charge{ n.advertise<std_msgs::Byte>("/body_control/charge_status", queue_size) }
   , pub_power{ n.advertise<std_msgs::Byte>("/body_control/power_state", queue_size) }
   , pub_charge_delay{ n.advertise<std_msgs::UInt8>("/body_control/charge_heartbeat_delay", queue_size) }
@@ -49,7 +49,7 @@ void receiver_board::handle(const can_frame& frame) const
     return;
   publish_bumper(frame);
   publish_emergency_switch(frame);
-  publish_emergency_stop(frame);
+  publish_emergency_state(frame);
   publish_charge(frame);
   publish_power(frame);
   publish_charge_delay(frame);
@@ -73,11 +73,11 @@ void receiver_board::publish_emergency_switch(const can_frame& frame) const
   pub_emergency_switch.publish(msg);
 }
 
-void receiver_board::publish_emergency_stop(const can_frame& frame) const
+void receiver_board::publish_emergency_state(const can_frame& frame) const
 {
   std_msgs::Bool msg;
   msg.data = (frame.data[0] & 0b00000100) != 0;
-  pub_emergency_stop.publish(msg);
+  pub_emergency_state.publish(msg);
 }
 
 void receiver_board::publish_charge(const can_frame& frame) const
