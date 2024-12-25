@@ -42,5 +42,6 @@ host$ docker compose run --rm roslaunch
 
 ```shell
 host$ docker exec -it <scbdriver container> bash
+container$ source devel/setup.bash
 container$ rosrun scbdriver updater <firmware>
 ```
