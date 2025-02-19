@@ -33,6 +33,7 @@ sender_board::sender_board(ros::NodeHandle& n, canif& can)
   , sub_wheel_off{ n.subscribe("/lexxhard/setup", queue_size, &sender_board::handle_wheel_off, this) }
   , sub_heartbeat{ n.subscribe("/lexxhard/mainboard_messenger_heartbeat", queue_size, &sender_board::handle_heartbeat,
                                this) }
+  , sub_lockdown{ n.subscribe("/control/request_lockdown", queue_size, &sender_board::handle_lockdown, this) }
   , can{ can }
 {
 }
@@ -66,5 +67,11 @@ void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr& msg)
 void sender_board::handle_heartbeat(const std_msgs::Bool::ConstPtr& msg)
 {
   frame.data[3] = msg->data;
+  can.send(frame);
+}
+
+void sender_board::handle_lockdown(const std_msgs::Bool::ConstPtr& msg)
+{
+  frame.data[4] = msg->data;
   can.send(frame);
 }
