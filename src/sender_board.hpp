@@ -45,5 +45,5 @@ private:
   ros::Subscriber sub_ems, sub_power_off, sub_wheel_off, sub_heartbeat, sub_lockdown;
   canif& can;
   static constexpr uint32_t queue_size{ 10 };
-  can_frame frame{ .can_id{ 0x20F }, .can_dlc{ 4 }, .data{ 0 } };
+  can_frame frame{ .can_id{ 0x20F }, .can_dlc{ 5 }, .data{ 0 } };
 };
