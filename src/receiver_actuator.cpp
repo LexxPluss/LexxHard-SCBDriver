@@ -64,6 +64,10 @@ void receiver_actuator::handle(const can_frame& frame) const
   {
     handle_encoder_count(frame);
   }
+  else if (frame.can_id == 0x20a)
+  {
+    handle_current(frame);
+  }
   else if (frame.can_id == 0x213)
   {
     handle_service_response(frame);
@@ -84,6 +88,22 @@ void receiver_actuator::handle_encoder_count(const can_frame& frame) const
   msg.data[1] = adjust_encoder_count(1, L);
   msg.data[2] = adjust_encoder_count(2, R);
   pub_encoder.publish(msg);
+}
+
+void receiver_actuator::handle_current(const can_frame& frame) const
+{
+  if (frame.can_dlc != 8)
+    return;
+  // ROS:[center,left,right], ROBOT:[left,center,right]
+  int16_t C{ static_cast<int16_t>((frame.data[0] << 8) | frame.data[1]) };
+  int16_t L{ static_cast<int16_t>((frame.data[2] << 8) | frame.data[3]) };
+  int16_t R{ static_cast<int16_t>((frame.data[4] << 8) | frame.data[5]) };
+  std_msgs::Float32MultiArray msg_current;
+  msg_current.data.resize(3);
+  msg_current.data[0] = C * 1e-3f;
+  msg_current.data[1] = L * 1e-3f;
+  msg_current.data[2] = R * 1e-3f;
+  pub_current.publish(msg_current);
 }
 
 void receiver_actuator::handle_service_response(const can_frame& frame) const
