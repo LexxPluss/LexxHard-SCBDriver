@@ -53,7 +53,7 @@ void sender_led::handle(const std_msgs::String::ConstPtr& msg) const
 void sender_led::decode(const std::string& data, uint8_t& pattern, uint16_t& count_per_minutes, uint8_t rgb[3]) const
 {
   // The following patterns are fixed
-  if (data == "safety_pause" || data == "emergency_stop"  )
+  if (data == "safety_pause" || data == "emergency_stop")
     pattern = 1;
   else if (data == "amr_mode")
     pattern = 2;
