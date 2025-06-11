@@ -52,11 +52,11 @@ sender_actuator::sender_actuator(ros::NodeHandle& n, ros::NodeHandle& pn, canif&
 int8_t sender_actuator::adjust_direction(size_t index, int8_t direction) const
 {
   // clang-format off
-    bool const should_invert_tbl[] = {
-        invert_center_actuator_direction,
-        invert_left_actuator_direction,
-        invert_right_actuator_direction
-    };
+  bool const should_invert_tbl[] = {
+      invert_center_actuator_direction,
+      invert_left_actuator_direction,
+      invert_right_actuator_direction
+  };
   // clang-format on
   bool const should_invert{ should_invert_tbl[index] };
 
@@ -109,6 +109,12 @@ bool sender_actuator::handle_init(scbdriver::InitLinearActuator::Request& req,
     return false;
   }
 
+  if (req.directions.data.size() != 3)
+  {
+    ROS_WARN("Reject request with invalid directions size: %lu", req.directions.data.size());
+    return false;
+  }
+
   auto const request_id = counter++;
   // send request
   {
@@ -117,9 +123,9 @@ bool sender_actuator::handle_init(scbdriver::InitLinearActuator::Request& req,
       .can_dlc{ 8 },
     };
     frame.data[0] = 1;                        // 1 means init
-    frame.data[1] = adjust_direction(0, -1);  // -1 means initialize with lowest, 1 means initialize with  highest
-    frame.data[2] = adjust_direction(1, -1);
-    frame.data[3] = adjust_direction(2, -1);
+    frame.data[1] = adjust_direction(0, req.directions.data[0]);
+    frame.data[2] = adjust_direction(1, req.directions.data[1]);
+    frame.data[3] = adjust_direction(2, req.directions.data[2]);
     frame.data[7] = request_id;
 
     can.send(frame);
