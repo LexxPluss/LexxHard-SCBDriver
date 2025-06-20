@@ -122,7 +122,7 @@ bool sender_actuator::handle_init(scbdriver::InitLinearActuator::Request& req,
       .can_id{ 0x20b },
       .can_dlc{ 8 },
     };
-    frame.data[0] = 1;                        // 1 means init
+    frame.data[0] = 1;  // 1 means init
     frame.data[1] = adjust_direction(0, req.directions.data[0]);
     frame.data[2] = adjust_direction(1, req.directions.data[1]);
     frame.data[3] = adjust_direction(2, req.directions.data[2]);
