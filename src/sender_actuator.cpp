@@ -213,7 +213,7 @@ sender_actuator::wait_for_service_response(std::unique_lock<std::mutex>& lock, u
   }) };
   if (!is_done)
   {
-    ROS_ERROR("Timeout waiting for service response");
+    ROS_WARN("Timeout waiting for service response");
     return std::nullopt;
   }
 
