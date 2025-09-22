@@ -34,7 +34,7 @@ sender_board::sender_board(ros::NodeHandle& n, canif& can)
   , sub_heartbeat{ n.subscribe("/lexxhard/mainboard_messenger_heartbeat", queue_size, &sender_board::handle_heartbeat, this) }
   , sub_lockdown{ n.subscribe("/control/request_lockdown", queue_size, &sender_board::handle_lockdown, this) }
   , sub_emergency_switch{ n.subscribe("/sensor_set/emergency_switch", queue_size, &sender_board::handle_emergency_switch, this) }
-  , srv_auto_charge_request_enable{ n.advertiseService("/control/aurot_charge_request/enable", &sender_board::handle_auto_charge_request_enable, this) }
+  , srv_auto_charge_request_enable{ n.advertiseService("/control/auto_charge_request/enable", &sender_board::handle_auto_charge_request_enable, this) }
   , can{ can }
 {
   frame.data[5] = 0x01;  // b0: auto_charge_request_enable
