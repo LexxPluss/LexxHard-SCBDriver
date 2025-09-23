@@ -31,10 +31,13 @@ sender_board::sender_board(ros::NodeHandle& n, canif& can)
   : sub_ems{ n.subscribe("/control/request_emergency_stop", queue_size, &sender_board::handle_ems, this) }
   , sub_power_off{ n.subscribe("/control/request_power_off", queue_size, &sender_board::handle_power_off, this) }
   , sub_wheel_off{ n.subscribe("/lexxhard/setup", queue_size, &sender_board::handle_wheel_off, this) }
-  , sub_heartbeat{ n.subscribe("/lexxhard/mainboard_messenger_heartbeat", queue_size, &sender_board::handle_heartbeat, this) }
+  , sub_heartbeat{ n.subscribe("/lexxhard/mainboard_messenger_heartbeat", queue_size, &sender_board::handle_heartbeat,
+                               this) }
   , sub_lockdown{ n.subscribe("/control/request_lockdown", queue_size, &sender_board::handle_lockdown, this) }
-  , sub_emergency_switch{ n.subscribe("/sensor_set/emergency_switch", queue_size, &sender_board::handle_emergency_switch, this) }
-  , srv_auto_charge_request_enable{ n.advertiseService("/control/auto_charge_request/enable", &sender_board::handle_auto_charge_request_enable, this) }
+  , sub_emergency_switch{ n.subscribe("/sensor_set/emergency_switch", queue_size,
+                                      &sender_board::handle_emergency_switch, this) }
+  , srv_auto_charge_request_enable{ n.advertiseService("/control/auto_charge_request/enable",
+                                                       &sender_board::handle_auto_charge_request_enable, this) }
   , can{ can }
 {
   frame.data[5] = 0x01;  // b0: auto_charge_request_enable
@@ -78,7 +81,7 @@ void sender_board::handle_lockdown(const std_msgs::Bool::ConstPtr& msg)
   can.send(frame);
 }
 
-bool sender_board::handle_auto_charge_request_enable(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res)
+bool sender_board::handle_auto_charge_request_enable(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
 {
   frame.data[5] = (frame.data[5] & 0xfe) | (req.data ? 0x01 : 0x00);
   can.send(frame);
