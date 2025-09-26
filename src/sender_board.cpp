@@ -94,7 +94,7 @@ void sender_board::handle_emergency_switch(const std_msgs::Bool::ConstPtr& msg)
 {
   if (prev_emergency_switch && !msg->data)
   {
-    frame.data[5] = (frame.data[5] & 0xfe) | 0x01;
+    frame.data[5] &= 0xfe;
     can.send(frame);
   }
 
