@@ -28,6 +28,7 @@
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/String.h"
+#include "std_srvs/SetBool.h"
 
 class canif;
 
@@ -42,8 +43,12 @@ private:
   void handle_wheel_off(const std_msgs::String::ConstPtr& msg);
   void handle_heartbeat(const std_msgs::Bool::ConstPtr& msg);
   void handle_lockdown(const std_msgs::Bool::ConstPtr& msg);
-  ros::Subscriber sub_ems, sub_power_off, sub_wheel_off, sub_heartbeat, sub_lockdown;
+  bool handle_auto_charge_request_enable(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res);
+  void handle_emergency_switch(const std_msgs::Bool::ConstPtr& msg);
+  ros::Subscriber sub_ems, sub_power_off, sub_wheel_off, sub_heartbeat, sub_lockdown, sub_emergency_switch;
+  ros::ServiceServer srv_auto_charge_request_enable;
   canif& can;
+  bool prev_emergency_switch{ false };
   static constexpr uint32_t queue_size{ 10 };
-  can_frame frame{ .can_id{ 0x20F }, .can_dlc{ 5 }, .data{ 0 } };
+  can_frame frame{ .can_id{ 0x20F }, .can_dlc{ 6 }, .data{ 0 } };
 };
