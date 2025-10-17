@@ -140,4 +140,5 @@ void receiver_bmu::decode(scbdriver::Battery& msg) const
   msg.state.cell_temperature[1] = bmudata.min_temp.value * 1e-2f;
   msg.state.location = "0";
   msg.state.serial_number = os.str();
+  msg.state_of_health = bmudata.soh;
 }
