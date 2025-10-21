@@ -46,6 +46,7 @@ add_message_files(
   LinearActuatorControlArray.msg
   LinearActuatorServiceResponse.msg
   PositionGuideVision.msg
+  BoardTemperatures.msg
 )
 
 add_service_files(

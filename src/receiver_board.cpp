@@ -29,6 +29,7 @@
 #include "std_msgs/ByteMultiArray.h"
 #include "std_msgs/Float32.h"
 #include "std_msgs/UInt8.h"
+#include "scbdriver/BoardTemperatures.h"
 #include "receiver_board.hpp"
 
 receiver_board::receiver_board(ros::NodeHandle& n)
@@ -40,12 +41,13 @@ receiver_board::receiver_board(ros::NodeHandle& n)
   , pub_charge_delay{ n.advertise<std_msgs::UInt8>("/body_control/charge_heartbeat_delay", queue_size) }
   , pub_charge_voltage{ n.advertise<std_msgs::Float32>("/body_control/charge_connector_voltage", queue_size) }
   , pub_safety_lidar{ n.advertise<std_msgs::Bool>("/sensor_set/safety_lidar", queue_size) }
+  , pub_temperature{ n.advertise<scbdriver::BoardTemperatures>("/sensor_set/temperature", queue_size) }
 {
 }
 
 void receiver_board::handle(const can_frame& frame) const
 {
-  if (frame.can_dlc != 6)
+  if (frame.can_dlc != 6 && frame.can_dlc != 8)
     return;
   publish_bumper(frame);
   publish_emergency_switch(frame);
@@ -55,6 +57,7 @@ void receiver_board::handle(const can_frame& frame) const
   publish_charge_delay(frame);
   publish_charge_voltage(frame);
   publish_safety_lidar(frame);
+  publish_temperature(frame);
 }
 
 void receiver_board::publish_bumper(const can_frame& frame) const
@@ -114,4 +117,21 @@ void receiver_board::publish_safety_lidar(const can_frame& frame) const
   std_msgs::Bool msg;
   msg.data = (frame.data[0] & 0b00000010) != 0;
   pub_safety_lidar.publish(msg);
+}
+
+void receiver_board::publish_temperature(const can_frame& frame) const
+{
+  scbdriver::BoardTemperatures msg;
+  msg.main.temperature = 0;
+  msg.power.temperature = 0;
+  msg.linear_actuator_center.temperature = 0;
+  msg.linear_actuator_left.temperature = 0;
+  msg.linear_actuator_right.temperature = 0;
+  if (frame.can_dlc == 8)  // check payload length for backward compatibility
+  {
+    msg.charge_plus.temperature = frame.data[6];
+    msg.charge_minus.temperature = frame.data[7];
+  }
+
+  pub_temperature.publish(msg);
 }
