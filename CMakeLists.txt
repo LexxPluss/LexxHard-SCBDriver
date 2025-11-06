@@ -73,6 +73,7 @@ include_directories(
 add_executable(
   receiver
   src/canif.cpp
+  src/uartif.cpp
   src/receiver.cpp
   src/receiver_actuator.cpp
   src/receiver_bmu.cpp
@@ -83,6 +84,7 @@ add_executable(
   src/receiver_uss.cpp
   src/receiver_gpio.cpp
   src/receiver_tug_encoder.cpp
+  src/receiver_tof.cpp
 )
 add_executable(
   sender
