@@ -1,8 +1,8 @@
 <launch>
   <node name="sender"   pkg="scbdriver" type="sender"   output="screen" />
   <node name="receiver" pkg="scbdriver" type="receiver" output="screen">
-    <param name="use_tof_sensor_board" value="false" />
+    <param name="use_tof_sensor_board" value="true" />
     <param name="tof_sensor_board_uart_port" value="/dev/ttyACM0" />
-    <param name="tof_sensor_board_baudrate" value="115200" />
+    <param name="tof_sensor_board_baudrate" value="460800" />
   </node>
 </launch>
