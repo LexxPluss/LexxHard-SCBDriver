@@ -37,6 +37,8 @@ public:
 
 private:
   static constexpr int queue_size{10};
-  ros::Publisher pub_front;
-  ros::Publisher pub_rear;
+  ros::Publisher pub_tof_front;
+  ros::Publisher pub_tof_rear;
+  ros::Publisher pub_low_object_left;
+  ros::Publisher pub_low_object_right;
 };

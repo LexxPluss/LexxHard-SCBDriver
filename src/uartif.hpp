@@ -46,7 +46,7 @@ private:
   static constexpr uint8_t SLIP_ESC = 0xDB;
   static constexpr uint8_t SLIP_ESC_END = 0xDC;
   static constexpr uint8_t SLIP_ESC_ESC = 0xDD;
-  static constexpr size_t MAX_BUFFER_SIZE = 50;
+  static constexpr size_t MAX_BUFFER_SIZE = 1024;
 };
 
 class uartif
