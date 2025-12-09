@@ -27,6 +27,7 @@
 #include <iostream>
 #include "ros/ros.h"
 #include "canif.hpp"
+#include "uartif.hpp"
 #include "receiver_actuator.hpp"
 #include "receiver_bmu.hpp"
 #include "receiver_board.hpp"
@@ -36,6 +37,7 @@
 #include "receiver_uss.hpp"
 #include "receiver_gpio.hpp"
 #include "receiver_tug_encoder.hpp"
+#include "receiver_tof.hpp"
 
 namespace
 {
@@ -44,10 +46,12 @@ class handler
 {
 public:
   handler(ros::NodeHandle& n, ros::NodeHandle& pn)
-    : actuator{ n, pn }, bmu{ n }, board{ n }, dfu{ n }, imu{ n }, pgv{ n }, uss{ n }, gpio{ n }, tug_encoder{ n }
+    : actuator{n, pn}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n},
+      gpio{n}, tug_encoder{n}, tof{n}
   {
   }
-  void handle(const can_frame& frame)
+
+  void handle_can(const can_frame& frame)
   {
     switch (frame.can_id)
     {
@@ -94,7 +98,12 @@ public:
       default:
         break;
     }
-  };
+  }
+
+  void handle_uart(const std::vector<uint8_t>& packet)
+  {
+    tof.handle(packet);
+  }
 
 private:
   receiver_actuator actuator;
@@ -106,7 +115,60 @@ private:
   receiver_uss uss;
   receiver_gpio gpio;
   receiver_tug_encoder tug_encoder;
+  receiver_tof tof;
 };
+
+bool canif_configure(canif& can, handler& handler)
+{
+  can.set_handler([&](const can_frame& frame) { handler.handle_can(frame); });
+  // clang-format off
+  can_filter filter[]{
+      {0x100, CAN_SFF_MASK},
+      {0x101, CAN_SFF_MASK},
+      {0x103, CAN_SFF_MASK},
+      {0x110, CAN_SFF_MASK},
+      {0x111, CAN_SFF_MASK},
+      {0x112, CAN_SFF_MASK},
+      {0x113, CAN_SFF_MASK},
+      {0x120, CAN_SFF_MASK},
+      {0x130, CAN_SFF_MASK},
+      {0x200, CAN_SFF_MASK},
+      {0x201, CAN_SFF_MASK},
+      {0x202, CAN_SFF_MASK},
+      {0x204, CAN_SFF_MASK},
+      {0x206, CAN_SFF_MASK},
+      {0x207, CAN_SFF_MASK},
+      {0x209, CAN_SFF_MASK},
+      {0x20a, CAN_SFF_MASK},
+      {0x20c, CAN_SFF_MASK},
+      {0x20e, CAN_SFF_MASK},
+      {0x210, CAN_SFF_MASK},
+      {0x212, CAN_SFF_MASK},
+      {0x213, CAN_SFF_MASK},
+  };
+  // clang-format on
+
+  if (can.init(filter, sizeof filter) < 0)
+  {
+    std::cerr << "canif::init() failed" << std::endl;
+    return false;
+  }
+
+  return true;
+}
+
+bool uartif_configure(uartif& uart, handler& handler)
+{
+  uart.set_handler([&](const std::vector<uint8_t>& packet) { handler.handle_uart(packet); });
+
+  if (uart.init() < 0)
+  {
+    std::cerr << "uartif::init() failed" << std::endl;
+    return false;
+  }
+
+  return true;
+}
 
 }  // namespace
 
@@ -115,45 +177,37 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "receiver");
   ros::NodeHandle n;
   ros::NodeHandle pn("~");
-  handler handler{ n, pn };
+
+  // Get ToF sensor board parameters
+  bool const use_tof_sensor_board = pn.param<bool>("use_tof_sensor_board", false);
+  std::string const tof_sensor_board_uart_port = pn.param<std::string>("tof_sensor_board_uart_port", "/dev/ttyACM0");
+  uint32_t const tof_sensor_board_baudrate = static_cast<uint32_t>(pn.param<int>("tof_sensor_board_baudrate", 115200));
+
+  handler handler{n, pn};
+
+  // Initialize CAN interface
   canif can;
-  can.set_handler([&](const can_frame& frame) { handler.handle(frame); });
-  // clang-format off
-    can_filter filter[]{
-        {0x100, CAN_SFF_MASK},
-        {0x101, CAN_SFF_MASK},
-        {0x103, CAN_SFF_MASK},
-        {0x110, CAN_SFF_MASK},
-        {0x111, CAN_SFF_MASK},
-        {0x112, CAN_SFF_MASK},
-        {0x113, CAN_SFF_MASK},
-        {0x120, CAN_SFF_MASK},
-        {0x130, CAN_SFF_MASK},
-        {0x200, CAN_SFF_MASK},
-        {0x201, CAN_SFF_MASK},
-        {0x202, CAN_SFF_MASK},
-        {0x204, CAN_SFF_MASK},
-        {0x206, CAN_SFF_MASK},
-        {0x207, CAN_SFF_MASK},
-        {0x209, CAN_SFF_MASK},
-        {0x20a, CAN_SFF_MASK},
-        {0x20c, CAN_SFF_MASK},
-        {0x20e, CAN_SFF_MASK},
-        {0x210, CAN_SFF_MASK},
-        {0x212, CAN_SFF_MASK},
-        {0x213, CAN_SFF_MASK},
-    };
-  // clang-format on
-  if (can.init(filter, sizeof filter) < 0)
+  if (!canif_configure(can, handler))
   {
-    std::cerr << "canif::init() failed" << std::endl;
     return -1;
   }
+
+  // Initialize UART interface (for ToF sensor board)
+  uartif uart{tof_sensor_board_uart_port, tof_sensor_board_baudrate};
+  if (use_tof_sensor_board)
+  {
+    uartif_configure(uart, handler);
+  }
+
   while (ros::ok())
   {
     can.poll(10);
+    uart.poll(10);
     ros::spinOnce();
   }
+
   can.term();
+  uart.term();
+
   return 0;
 }

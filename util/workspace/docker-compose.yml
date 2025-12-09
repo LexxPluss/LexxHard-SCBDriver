@@ -39,6 +39,7 @@ services:
     volumes:
       - ./:/space
       - ../../:/space/src/scbdriver
+      - /dev:/dev
     working_dir: /space
     command: bash -c "source devel/setup.bash && roslaunch scbdriver scbdriver.launch"
     network_mode: host
