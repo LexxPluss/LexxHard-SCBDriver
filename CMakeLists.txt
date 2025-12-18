@@ -88,7 +88,6 @@ add_executable(
 )
 add_executable(
   sender
-  #src/canif.cpp
   src/devif.cpp
   src/sender.cpp
   src/sender_actuator.cpp
