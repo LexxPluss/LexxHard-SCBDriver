@@ -24,6 +24,8 @@
  */
 
 #include <linux/can.h>
+#include <atomic>
+#include <thread>
 #include <iostream>
 #include "ros/ros.h"
 #include "devif.hpp"
@@ -117,7 +119,7 @@ private:
   receiver_tof tof;
 };
 
-bool canif_configure(devif& dev, handler& handler)
+bool canif_configure(devif& dev)
 {
   // clang-format off
   can_filter filter[]{
@@ -146,8 +148,7 @@ bool canif_configure(devif& dev, handler& handler)
   };
   // clang-format on
 
-  if (dev.add_can("can1", filter, sizeof filter, 
-      [&](const can_frame& frame) { handler.handle_can(frame); }) < 0)
+  if (dev.add_can("can1", filter, sizeof filter)  < 0)
   {
     std::cerr << "devif:add_can() failed" << std::endl;
     return false; 
@@ -156,10 +157,9 @@ bool canif_configure(devif& dev, handler& handler)
   return true;
 }
 
-bool uartif_configure(devif& dev, handler& handler, const std::string& device, uint32_t baudrate)
+bool uartif_configure(devif& dev, const std::string& device, uint32_t baudrate)
 {
-  if (dev.add_uart(device, baudrate,
-        [&](const std::vector<uint8_t>& packet) { handler.handle_uart(packet); }) < 0)
+  if (dev.add_uart(device, baudrate) < 0)
   {
     std::cerr << "devif::add_uart() failed" << std::endl;
     return false;
@@ -170,22 +170,24 @@ bool uartif_configure(devif& dev, handler& handler, const std::string& device, u
 
 }  // namespace
 
+
 int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "receiver");
   ros::NodeHandle n;
   ros::NodeHandle pn("~");
 
-  // Get ToF sensor board parameters
   bool const use_tof_sensor_board = pn.param<bool>("use_tof_sensor_board", false);
   std::string const tof_sensor_board_uart_port = pn.param<std::string>("tof_sensor_board_uart_port", "/dev/ttyACM0");
   uint32_t const tof_sensor_board_baudrate = static_cast<uint32_t>(pn.param<int>("tof_sensor_board_baudrate", 115200));
 
   handler handler{n, pn};
-  devif dev;
+
+  devif::queue_type queue;
+  devif dev{queue};
 
   // Initialize CAN interface
-  if (!canif_configure(dev, handler))
+  if (!canif_configure(dev))
   {
     return -1;
   }
@@ -193,18 +195,43 @@ int main(int argc, char* argv[])
   // Initialize UART interface (for ToF sensor board)
   if (use_tof_sensor_board)
   {
-    if(!uartif_configure(dev, handler, tof_sensor_board_uart_port, tof_sensor_board_baudrate))
+    if(!uartif_configure(dev, tof_sensor_board_uart_port, tof_sensor_board_baudrate))
     {
       return -1;
     }
   }
 
+  std::atomic<bool> running{true};
+  std::thread io_thread{[&] {
+    while (running.load(std::memory_order_relaxed))
+    {
+      dev.poll(10);
+    }
+  }};
+
   while (ros::ok())
   {
-    dev.poll(10);
+    device_message msg;
+    while (queue.pop(msg))
+    {
+      std::visit([&](auto& m) {
+        using T = std::decay_t<decltype(m)>;
+        if constexpr (std::is_same_v<T, can_message>)
+	{
+          handler.handle_can(m.frame);
+	}
+        else if constexpr (std::is_same_v<T, uart_message>)
+	{
+          handler.handle_uart(m.packet);
+	}
+      }, msg);
+    }
+
     ros::spinOnce();
   }
 
+  running.store(false, std::memory_order_relaxed);
+  io_thread.join();
   dev.term();
 
   return 0;

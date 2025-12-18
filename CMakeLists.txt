@@ -72,8 +72,6 @@ include_directories(
 
 add_executable(
   receiver
-  #src/canif.cpp
-  #src/uartif.cpp
   src/devif.cpp
   src/receiver.cpp
   src/receiver_actuator.cpp

@@ -1,4 +1,3 @@
-// devif.cpp
 /*
  * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.
@@ -44,7 +43,6 @@ namespace
 
 int configure_tty(int fd, uint32_t baudrate)
 {
-  // Get current tty settings
   termios tty;
   if (tcgetattr(fd, &tty) != 0)
   {
@@ -52,8 +50,7 @@ int configure_tty(int fd, uint32_t baudrate)
     return -1;
   }
 
-  // Set baudrate
-  speed_t speed = B115200;
+  speed_t speed;
   switch (baudrate)
   {
     case 9600:   speed = B9600;   break;
@@ -70,24 +67,20 @@ int configure_tty(int fd, uint32_t baudrate)
   cfsetospeed(&tty, speed);
   cfsetispeed(&tty, speed);
 
-  // Configure 8N1
-  tty.c_cflag &= ~PARENB;         // No parity
-  tty.c_cflag &= ~CSTOPB;         // 1 stop bit
+  tty.c_cflag &= ~PARENB;
+  tty.c_cflag &= ~CSTOPB;
   tty.c_cflag &= ~CSIZE;
-  tty.c_cflag |= CS8;             // 8 data bits
-  tty.c_cflag &= ~CRTSCTS;        // No hardware flow control
-  tty.c_cflag |= CREAD | CLOCAL;  // Enable receiver, ignore modem control lines
+  tty.c_cflag |= CS8;
+  tty.c_cflag &= ~CRTSCTS;
+  tty.c_cflag |= CREAD | CLOCAL;
 
-  // Configure raw mode
   tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
   tty.c_iflag &= ~(IXON | IXOFF | IXANY);
   tty.c_oflag &= ~OPOST;
 
-  // Set non-blocking read
   tty.c_cc[VMIN] = 0;
   tty.c_cc[VTIME] = 0;
 
-  // Apply settings
   if (tcsetattr(fd, TCSANOW, &tty) != 0)
   {
     std::cerr << "tcsetattr() failed" << std::endl;
@@ -99,12 +92,17 @@ int configure_tty(int fd, uint32_t baudrate)
 
 }  // namespace
 
+devif::devif(queue_type& queue)
+  : queue{&queue}
+{
+}
+
 devif::~devif()
 {
   term();
 }
 
-int devif::add_can(const std::string& ifname, const can_filter* filter, size_t nfilter, can_handler_t handler)
+int devif::add_can(const std::string& ifname, const can_filter* filter, size_t nfilter)
 {
   int sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   if (sock < 0)
@@ -131,7 +129,10 @@ int devif::add_can(const std::string& ifname, const can_filter* filter, size_t n
     return -1;
   }
 
-  sockaddr_can addr{ .can_family{ AF_CAN }, .can_ifindex{ ifr.ifr_ifindex } };
+  sockaddr_can addr{};
+  addr.can_family = AF_CAN;
+  addr.can_ifindex = ifr.ifr_ifindex;
+
   if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof addr) < 0)
   {
     std::cerr << "bind(CAN) failed" << std::endl;
@@ -146,11 +147,11 @@ int devif::add_can(const std::string& ifname, const can_filter* filter, size_t n
     return -1;
   }
 
-  can_devices.push_back({sock, std::move(handler)});
+  can_devices.push_back({sock});
   return 0;
 }
 
-int devif::add_uart(const std::string& device, uint32_t baudrate, uart_handler_t handler)
+int devif::add_uart(const std::string& device, uint32_t baudrate)
 {
   int fd = open(device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
   if (fd < 0)
@@ -165,7 +166,7 @@ int devif::add_uart(const std::string& device, uint32_t baudrate, uart_handler_t
     return -1;
   }
 
-  uart_devices.push_back({fd, std::move(handler), {}});
+  uart_devices.push_back({fd, {}});
   return 0;
 }
 
@@ -173,7 +174,7 @@ void devif::term()
 {
   for (auto& dev : can_devices)
   {
-    if (0 <= dev.fd)
+    if (dev.fd >= 0)
     {
       close(dev.fd);
       dev.fd = -1;
@@ -183,7 +184,7 @@ void devif::term()
 
   for (auto& dev : uart_devices)
   {
-    if (0 <= dev.fd)
+    if (dev.fd >= 0)
     {
       close(dev.fd);
       dev.fd = -1;
@@ -194,6 +195,11 @@ void devif::term()
 
 int devif::poll(int timeout_ms)
 {
+  if(!queue)
+  {
+    return 0;
+  }
+
   std::vector<pollfd> fds;
   fds.reserve(can_devices.size() + uart_devices.size());
 
@@ -249,23 +255,26 @@ int devif::poll(int timeout_ms)
 
 int devif::read_can(can_device& dev)
 {
-  for (int i = 0; i < 10; ++i)
+  while (true)
   {
     can_frame frame;
     auto ret = read(dev.fd, &frame, sizeof frame);
     if (ret < 0)
     {
       if (errno == EAGAIN || errno == EWOULDBLOCK)
+      {
         return 0;
+      }
+
       std::cerr << "read(CAN) failed" << std::endl;
       return -1;
     }
-    if (dev.handler)
+
+    if (!queue->push(can_message{frame}))
     {
-      dev.handler(frame);
+      std::cerr << "CAN queue full, dropping frame" << std::endl;
     }
   }
-  return 0;
 }
 
 int devif::read_uart(uart_device& dev)
@@ -281,7 +290,6 @@ int devif::read_uart(uart_device& dev)
       {
         return 0;
       }
-
       std::cerr << "read(UART) failed" << std::endl;
       return -1;
     }
@@ -306,9 +314,9 @@ int devif::read_uart(uart_device& dev)
         packet.pop_back();
         if (slip_decoder::verify_parity(packet, parity))
         {
-          if (dev.handler)
+          if (!queue->push(uart_message{std::move(packet)}))
 	  {
-            dev.handler(packet);
+            std::cerr << "UART queue full, dropping packet" << std::endl;
 	  }
         }
         else
@@ -320,15 +328,14 @@ int devif::read_uart(uart_device& dev)
   }
 }
 
-
-int devif::send_can(const can_frame& frame, size_t idx) const
+int devif::send_can(const can_frame& frame) const
 {
-  if (can_devices.size() < (idx + 1))
+  if (can_devices.empty())
   {
     return -1;
   }
 
-  if (write(can_devices[idx].fd, &frame, sizeof frame) < 0)
+  if (write(can_devices[0].fd, &frame, sizeof frame) < 0)
   {
     std::cerr << "write(CAN) failed" << std::endl;
     return -1;
