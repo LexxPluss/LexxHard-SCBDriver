@@ -28,16 +28,16 @@
 #include "ros/ros.h"
 #include "std_msgs/UInt8.h"
 
-class canif;
+class devif;
 
 class sender_pgv
 {
 public:
-  sender_pgv(ros::NodeHandle& n, canif& can);
+  sender_pgv(ros::NodeHandle& n, devif& dev);
 
 private:
   void handle(const std_msgs::UInt8::ConstPtr& msg) const;
   ros::Subscriber sub;
-  canif& can;
+  devif& dev;
   static constexpr uint32_t queue_size{ 10 };
 };

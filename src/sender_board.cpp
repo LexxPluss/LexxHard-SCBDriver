@@ -24,10 +24,10 @@
  */
 
 #include <linux/can.h>
-#include "canif.hpp"
+#include "devif.hpp"
 #include "sender_board.hpp"
 
-sender_board::sender_board(ros::NodeHandle& n, canif& can)
+sender_board::sender_board(ros::NodeHandle& n, devif& dev)
   : sub_ems{ n.subscribe("/control/request_emergency_stop", queue_size, &sender_board::handle_ems, this) }
   , sub_power_off{ n.subscribe("/control/request_power_off", queue_size, &sender_board::handle_power_off, this) }
   , sub_wheel_off{ n.subscribe("/lexxhard/setup", queue_size, &sender_board::handle_wheel_off, this) }
@@ -38,7 +38,7 @@ sender_board::sender_board(ros::NodeHandle& n, canif& can)
                                       &sender_board::handle_emergency_switch, this) }
   , srv_auto_charge_request_enable{ n.advertiseService("/control/auto_charge_request/enable",
                                                        &sender_board::handle_auto_charge_request_enable, this) }
-  , can{ can }
+  , dev{ dev }
 {
   frame.data[5] = 0x01;  // b0: auto_charge_request_enable
 }
@@ -46,13 +46,13 @@ sender_board::sender_board(ros::NodeHandle& n, canif& can)
 void sender_board::handle_ems(const std_msgs::Bool::ConstPtr& msg)
 {
   frame.data[0] = msg->data;
-  can.send(frame);
+  dev.send_can(frame);
 }
 
 void sender_board::handle_power_off(const std_msgs::Bool::ConstPtr& msg)
 {
   frame.data[1] = msg->data;
-  can.send(frame);
+  dev.send_can(frame);
 }
 
 void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr& msg)
@@ -66,25 +66,25 @@ void sender_board::handle_wheel_off(const std_msgs::String::ConstPtr& msg)
     frame.data[2] = 0;
   }
 
-  can.send(frame);
+  dev.send_can(frame);
 }
 
 void sender_board::handle_heartbeat(const std_msgs::Bool::ConstPtr& msg)
 {
   frame.data[3] = msg->data;
-  can.send(frame);
+  dev.send_can(frame);
 }
 
 void sender_board::handle_lockdown(const std_msgs::Bool::ConstPtr& msg)
 {
   frame.data[4] = msg->data;
-  can.send(frame);
+  dev.send_can(frame);
 }
 
 bool sender_board::handle_auto_charge_request_enable(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
 {
   frame.data[5] = (frame.data[5] & 0xfe) | (req.data ? 0x01 : 0x00);
-  can.send(frame);
+  dev.send_can(frame);
 
   res.success = true;
   return true;
@@ -95,7 +95,7 @@ void sender_board::handle_emergency_switch(const std_msgs::Bool::ConstPtr& msg)
   if (prev_emergency_switch && !msg->data)
   {
     frame.data[5] &= 0xfe;
-    can.send(frame);
+    dev.send_can(frame);
   }
 
   prev_emergency_switch = msg->data;

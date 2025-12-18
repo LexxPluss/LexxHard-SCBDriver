@@ -24,11 +24,11 @@
  */
 
 #include <linux/can.h>
-#include "canif.hpp"
+#include "devif.hpp"
 #include "sender_pgv.hpp"
 
-sender_pgv::sender_pgv(ros::NodeHandle& n, canif& can)
-  : sub{ n.subscribe("/sensor_set/pgv_dir", queue_size, &sender_pgv::handle, this) }, can{ can }
+sender_pgv::sender_pgv(ros::NodeHandle& n, devif& dev)
+  : sub{ n.subscribe("/sensor_set/pgv_dir", queue_size, &sender_pgv::handle, this) }, dev{ dev }
 {
 }
 
@@ -39,5 +39,5 @@ void sender_pgv::handle(const std_msgs::UInt8::ConstPtr& msg) const
     .can_dlc{ 1 },
   };
   frame.data[0] = msg->data;
-  can.send(frame);
+  dev.send_can(frame);
 }

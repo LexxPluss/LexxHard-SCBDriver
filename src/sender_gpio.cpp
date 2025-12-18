@@ -24,7 +24,7 @@
  */
 
 #include <linux/can.h>
-#include "canif.hpp"
+#include "devif.hpp"
 #include "sender_gpio.hpp"
 
 namespace
@@ -36,14 +36,14 @@ uint8_t set_out_port_status(const uint8_t status, const uint8_t port, const bool
 }
 }  // namespace
 
-sender_gpio::sender_gpio(ros::NodeHandle& n, canif& can)
+sender_gpio::sender_gpio(ros::NodeHandle& n, devif& dev)
   : subs{ {
         n.subscribe("gpio/out_port0", queue_size, &sender_gpio::handle<0>, this),
         n.subscribe("gpio/out_port1", queue_size, &sender_gpio::handle<1>, this),
         n.subscribe("gpio/out_port2", queue_size, &sender_gpio::handle<2>, this),
         n.subscribe("gpio/out_port3", queue_size, &sender_gpio::handle<3>, this),
     } }
-  , can{ can }
+  , dev{ dev }
 {
 }
 
@@ -51,5 +51,5 @@ template <uint8_t N>
 void sender_gpio::handle(const std_msgs::Bool::ConstPtr& msg)
 {
   frame.data[0] = set_out_port_status(frame.data[0], N, msg->data);
-  can.send(frame);
+  dev.send_can(frame);
 }
