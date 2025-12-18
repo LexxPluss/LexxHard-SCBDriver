@@ -25,24 +25,54 @@
 
 #pragma once
 
-#include <cstdint>
-#include <vector>
+#include <atomic>
+#include <array>
+#include <cstddef>
+#include <utility>
 
-class slip_decoder
+template <typename T, size_t Capacity>
+class spsc_queue
 {
 public:
-  slip_decoder() = default;
-  bool decode_byte(uint8_t byte, std::vector<uint8_t>& packet);
-  void reset();
-  static bool verify_parity(const std::vector<uint8_t>& data, uint8_t parity);
+  spsc_queue() = default;
+
+  template <typename U>
+  bool push(U&& item)
+  {
+    const size_t head_idx = head.load(std::memory_order_relaxed);
+    const size_t next_idx = (head_idx + 1) % Capacity;
+
+    if (next_idx == tail.load(std::memory_order_acquire))
+    {
+      return false;
+    }
+
+    buffer[head_idx] = std::forward<U>(item);
+    head.store(next_idx, std::memory_order_release);
+    return true;
+  }
+
+  bool pop(T& item)
+  {
+    const size_t tail_idx = tail.load(std::memory_order_relaxed);
+
+    if (tail_idx == head.load(std::memory_order_acquire))
+    {
+      return false;
+    }
+
+    item = std::move(buffer[tail]);
+    tail.store((tail_idx + 1) % Capacity, std::memory_order_release);
+    return true;
+  }
+
+  bool empty() const
+  {
+    return head.load(std::memory_order_acquire) == tail.load(std::memory_order_acquire);
+  }
 
 private:
-  std::vector<uint8_t> buffer;
-  bool escape_next{false};
-
-  static constexpr uint8_t SLIP_END = 0xC0;
-  static constexpr uint8_t SLIP_ESC = 0xDB;
-  static constexpr uint8_t SLIP_ESC_END = 0xDC;
-  static constexpr uint8_t SLIP_ESC_ESC = 0xDD;
-  static constexpr size_t MAX_BUFFER_SIZE = 50;
+  std::array<T, Capacity> buffer;
+  std::atomic<size_t> head{0};
+  std::atomic<size_t> tail{0};
 };

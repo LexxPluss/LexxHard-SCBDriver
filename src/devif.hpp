@@ -1,4 +1,3 @@
-// devif.hpp
 /*
  * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.
@@ -28,48 +27,61 @@
 
 #include <linux/can.h>
 #include <cstdint>
-#include <functional>
 #include <string>
 #include <vector>
+#include <variant>
 #include "slip_decoder.hpp"
+#include "spsc_queue.hpp"
+
+struct can_message
+{
+  can_frame frame;
+};
+
+struct uart_message
+{
+  std::vector<uint8_t> packet;
+};
+
+using device_message = std::variant<can_message, uart_message>;
 
 class devif
 {
 public:
-  using can_handler_t = std::function<void(const can_frame&)>;
-  using uart_handler_t = std::function<void(const std::vector<uint8_t>&)>;
+  static constexpr size_t QUEUE_CAPACITY = 1024;
+  using queue_type = spsc_queue<device_message, QUEUE_CAPACITY>;
 
   devif() = default;
+  explicit devif(queue_type& queue);
   ~devif();
 
   devif(const devif&) = delete;
   devif& operator=(const devif&) = delete;
 
-  int add_can(const std::string& ifname, const can_filter* filter, size_t nfilter, can_handler_t handler);
-  int add_uart(const std::string& device, uint32_t baudrate, uart_handler_t handler);
+  int add_can(const std::string& ifname, const can_filter* filter, size_t nfilter);
+  int add_uart(const std::string& device, uint32_t baudrate);
 
   int poll(int timeout_ms);
   void term();
 
-  int send_can(const can_frame& frame, size_t idx = 0) const;
+  int send_can(const can_frame& frame) const;
 
 private:
   struct can_device
   {
     int fd{-1};
-    can_handler_t handler;
   };
 
   struct uart_device
   {
     int fd{-1};
-    uart_handler_t handler;
     slip_decoder decoder;
   };
 
   int read_can(can_device& dev);
   int read_uart(uart_device& dev);
 
+  queue_type* queue{nullptr};
   std::vector<can_device> can_devices;
   std::vector<uart_device> uart_devices;
 };

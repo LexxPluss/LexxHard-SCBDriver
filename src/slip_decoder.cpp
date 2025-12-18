@@ -1,4 +1,3 @@
-// slip_decoder.cpp
 /*
  * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.

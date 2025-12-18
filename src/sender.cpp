@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
   ros::NodeHandle pn("~");
   devif dev;
 
-  if (dev.add_can("can1", nullptr, 0, nullptr) < 0)
+  if (dev.add_can("can1", nullptr, 0) < 0)
   {
     std::cerr << "dev::add_can() failed" << std::endl;
     return -1;
