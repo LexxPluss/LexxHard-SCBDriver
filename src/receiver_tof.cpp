@@ -34,13 +34,19 @@
 namespace
 {
     constexpr uint8_t PKT_TOF_DATA = 0x01;
+    constexpr uint8_t TOF_PACKET_HEADER_SIZE = 7;
 
-    struct __attribute__((packed))  ToF_Packet {
+    struct __attribute__((packed)) ToF_ZoneResult {
+    uint8_t num_of_targets;
+        uint32_t distance[4];
+        uint8_t status[4];
+    };
+    struct __attribute__((packed)) ToF_Packet {
         uint8_t type;
         uint8_t sensor_id;
         uint32_t timestamp_ms;
-        uint8_t num_of_targets;
-        uint32_t distances[4];
+        uint8_t num_of_zones;
+    ToF_ZoneResult zone_results[64];
     };
 
     uint32_t read_le32(const std::vector<uint8_t>& packet, size_t offset)
@@ -55,31 +61,30 @@ namespace
 
     std::optional<ToF_Packet> parse_frame(const std::vector<uint8_t>& frame)
     {
-        if (frame.size() < sizeof(ToF_Packet))
+        if (frame.size() < TOF_PACKET_HEADER_SIZE)
         {
             std::cerr << "ToF packet too short: " << frame.size() << " bytes" << std::endl;
             return std::nullopt;
         }
 
-        ToF_Packet const packet{
+        ToF_Packet packet{
             .type = frame[0],
             .sensor_id = frame[1],
             .timestamp_ms = read_le32(frame, 2),
-            .num_of_targets = frame[6],
-            .distances = {
-                read_le32(frame, 7),
-                read_le32(frame, 11),
-                read_le32(frame, 15),
-                read_le32(frame, 19)
-            }
+            .num_of_zones = frame[6],
         };
 
-        if (4 < packet.num_of_targets)
+    size_t offset = TOF_PACKET_HEADER_SIZE;
+    for(int i = 0;i < packet.num_of_zones; ++i)
+    {
+        packet.zone_results[i].num_of_targets = frame[offset++];
+        for(int j = 0; j < packet.zone_results[i].num_of_targets; ++j)
         {
-            std::cerr << "Invalid number of targets in ToF packet: "
-                      << static_cast<int>(packet.num_of_targets) << std::endl;
-            return std::nullopt;
+        packet.zone_results[i].distance[j] = read_le32(frame, offset);
+        offset += 4;
+        packet.zone_results[i].status[j] = frame[offset++];
         }
+    }
 
         return packet;
     }
@@ -93,9 +98,17 @@ namespace
         }
 
         msg.data.clear();
-        for (uint8_t i = 0; i < packet.num_of_targets; ++i)
+        for (uint8_t i = 0; i < packet.num_of_zones; ++i)
         {
-            msg.data.push_back(conv_from_raw_distance(packet.distances[i]));
+            if(packet.zone_results[i].num_of_targets == 0)
+            {
+                msg.data.push_back(-1.0);
+            }
+
+            for (uint8_t j = 0; j < packet.zone_results[i].num_of_targets; ++j)
+            {
+                msg.data.push_back(conv_from_raw_distance(packet.zone_results[i].distance[j]));
+            }
         }
 
         return true;
@@ -104,8 +117,10 @@ namespace
 
 receiver_tof::receiver_tof(ros::NodeHandle& n)
 {
-  pub_front = n.advertise<std_msgs::Float32MultiArray>("/sensor_set/tof_front", queue_size);
-  pub_rear = n.advertise<std_msgs::Float32MultiArray>("/sensor_set/tof_rear", queue_size);
+  pub_tof_front = n.advertise<std_msgs::Float32MultiArray>("/sensor_set/tof_front", queue_size);
+  pub_tof_rear = n.advertise<std_msgs::Float32MultiArray>("/sensor_set/tof_rear", queue_size);
+  pub_low_object_left = n.advertise<std_msgs::Float32MultiArray>("/sensor_set/low_object_left", queue_size);
+  pub_low_object_right = n.advertise<std_msgs::Float32MultiArray>("/sensor_set/low_object_right", queue_size);
 }
 
 void receiver_tof::handle(const std::vector<uint8_t>& frame)
@@ -124,11 +139,19 @@ void receiver_tof::handle(const std::vector<uint8_t>& frame)
 
   if(packet->sensor_id == 0)
   {
-    pub_front.publish(msg);
+    pub_tof_front.publish(msg);
   }
   else if(packet->sensor_id == 1)
   {
-    pub_rear.publish(msg);
+    pub_tof_rear.publish(msg);
+  }
+  else if(packet->sensor_id == 2)
+  {
+    pub_low_object_left.publish(msg);
+  }
+  else if(packet->sensor_id == 3)
+  {
+    pub_low_object_right.publish(msg);
   }
   else
   {
