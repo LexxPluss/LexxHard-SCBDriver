@@ -23,11 +23,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "canif.hpp"
+#include "devif.hpp"
 #include "sender_dfu.hpp"
 
-sender_dfu::sender_dfu(ros::NodeHandle& n, canif& can)
-  : sub{ n.subscribe("/lexxhard/dfu_data", queue_size, &sender_dfu::handle, this) }, can{ can }
+sender_dfu::sender_dfu(ros::NodeHandle& n, devif& dev)
+  : sub{ n.subscribe("/lexxhard/dfu_data", queue_size, &sender_dfu::handle, this) }, dev{ dev }
 {
 }
 
@@ -39,5 +39,5 @@ void sender_dfu::handle(const std_msgs::UInt8MultiArray::ConstPtr& msg) const
     .can_dlc{ len },
   };
   std::copy_n(std::begin(msg->data), len, std::begin(frame.data));
-  can.send(frame);
+  dev.send_can(frame);
 }

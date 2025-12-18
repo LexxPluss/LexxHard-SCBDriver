@@ -38,12 +38,12 @@
 #include "scbdriver/LinearActuatorControlArray.h"
 #include "scbdriver/LinearActuatorServiceResponse.h"
 
-class canif;
+class devif;
 
 class sender_actuator
 {
 public:
-  sender_actuator(ros::NodeHandle& n, ros::NodeHandle& pn, canif& can);
+  sender_actuator(ros::NodeHandle& n, ros::NodeHandle& pn, devif& dev);
 
 private:
   class service_response_message_store
@@ -82,7 +82,7 @@ private:
   ros::Subscriber sub_srv_resp;
   ros::ServiceServer srv_init;
   ros::ServiceServer srv_location;
-  canif& can;
+  devif& dev;
   std::mutex handle_mtx;
   std::mutex notify_mtx;
   std::condition_variable service_resp_cv;

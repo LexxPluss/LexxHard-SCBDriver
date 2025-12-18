@@ -26,8 +26,7 @@
 #include <linux/can.h>
 #include <iostream>
 #include "ros/ros.h"
-#include "canif.hpp"
-#include "uartif.hpp"
+#include "devif.hpp"
 #include "receiver_actuator.hpp"
 #include "receiver_bmu.hpp"
 #include "receiver_board.hpp"
@@ -118,9 +117,8 @@ private:
   receiver_tof tof;
 };
 
-bool canif_configure(canif& can, handler& handler)
+bool canif_configure(devif& dev, handler& handler)
 {
-  can.set_handler([&](const can_frame& frame) { handler.handle_can(frame); });
   // clang-format off
   can_filter filter[]{
       {0x100, CAN_SFF_MASK},
@@ -148,22 +146,22 @@ bool canif_configure(canif& can, handler& handler)
   };
   // clang-format on
 
-  if (can.init(filter, sizeof filter) < 0)
+  if (dev.add_can("can1", filter, sizeof filter, 
+      [&](const can_frame& frame) { handler.handle_can(frame); }) < 0)
   {
-    std::cerr << "canif::init() failed" << std::endl;
-    return false;
+    std::cerr << "devif:add_can() failed" << std::endl;
+    return false; 
   }
 
   return true;
 }
 
-bool uartif_configure(uartif& uart, handler& handler)
+bool uartif_configure(devif& dev, handler& handler, const std::string& device, uint32_t baudrate)
 {
-  uart.set_handler([&](const std::vector<uint8_t>& packet) { handler.handle_uart(packet); });
-
-  if (uart.init() < 0)
+  if (dev.add_uart(device, baudrate,
+        [&](const std::vector<uint8_t>& packet) { handler.handle_uart(packet); }) < 0)
   {
-    std::cerr << "uartif::init() failed" << std::endl;
+    std::cerr << "devif::add_uart() failed" << std::endl;
     return false;
   }
 
@@ -184,30 +182,30 @@ int main(int argc, char* argv[])
   uint32_t const tof_sensor_board_baudrate = static_cast<uint32_t>(pn.param<int>("tof_sensor_board_baudrate", 115200));
 
   handler handler{n, pn};
+  devif dev;
 
   // Initialize CAN interface
-  canif can;
-  if (!canif_configure(can, handler))
+  if (!canif_configure(dev, handler))
   {
     return -1;
   }
 
   // Initialize UART interface (for ToF sensor board)
-  uartif uart{tof_sensor_board_uart_port, tof_sensor_board_baudrate};
   if (use_tof_sensor_board)
   {
-    uartif_configure(uart, handler);
+    if(!uartif_configure(dev, handler, tof_sensor_board_uart_port, tof_sensor_board_baudrate))
+    {
+      return -1;
+    }
   }
 
   while (ros::ok())
   {
-    can.poll(10);
-    uart.poll(10);
+    dev.poll(10);
     ros::spinOnce();
   }
 
-  can.term();
-  uart.term();
+  dev.term();
 
   return 0;
 }

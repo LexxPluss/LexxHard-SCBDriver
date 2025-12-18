@@ -33,7 +33,7 @@
 class slip_decoder
 {
 public:
-  slip_decoder();
+  slip_decoder() = default;
   bool decode_byte(uint8_t byte, std::vector<uint8_t>& packet);
   void reset();
   static bool verify_parity(const std::vector<uint8_t>& data, uint8_t parity);
@@ -41,7 +41,7 @@ public:
 private:
   std::vector<uint8_t> buffer;
   bool escape_next{false};
-  
+
   static constexpr uint8_t SLIP_END = 0xC0;
   static constexpr uint8_t SLIP_ESC = 0xDB;
   static constexpr uint8_t SLIP_ESC_END = 0xDC;

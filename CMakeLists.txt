@@ -72,8 +72,9 @@ include_directories(
 
 add_executable(
   receiver
-  src/canif.cpp
-  src/uartif.cpp
+  #src/canif.cpp
+  #src/uartif.cpp
+  src/devif.cpp
   src/receiver.cpp
   src/receiver_actuator.cpp
   src/receiver_bmu.cpp
@@ -85,10 +86,12 @@ add_executable(
   src/receiver_gpio.cpp
   src/receiver_tug_encoder.cpp
   src/receiver_tof.cpp
+  src/slip_decoder.cpp
 )
 add_executable(
   sender
-  src/canif.cpp
+  #src/canif.cpp
+  src/devif.cpp
   src/sender.cpp
   src/sender_actuator.cpp
   src/sender_board.cpp
@@ -96,6 +99,7 @@ add_executable(
   src/sender_gpio.cpp
   src/sender_led.cpp
   src/sender_pgv.cpp
+  src/slip_decoder.cpp
 )
 add_executable(
   updater

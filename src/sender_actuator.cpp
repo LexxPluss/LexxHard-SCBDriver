@@ -31,18 +31,18 @@
 
 #include <linux/can.h>
 
-#include "canif.hpp"
+#include "devif.hpp"
 #include "scbdriver/LinearActuatorServiceResponse.h"
 #include "sender_actuator.hpp"
 
-sender_actuator::sender_actuator(ros::NodeHandle& n, ros::NodeHandle& pn, canif& can)
+sender_actuator::sender_actuator(ros::NodeHandle& n, ros::NodeHandle& pn, devif& dev)
   : sub_actuator{ n.subscribe("/body_control/linear_actuator", queue_size, &sender_actuator::handle, this) }
   , sub_srv_resp{ n.subscribe("scbdriver/linear_actuator_service_response", queue_size,
                               &sender_actuator::handle_srv_resp, this) }
   , srv_init{ n.advertiseService("/body_control/init_linear_actuator", &sender_actuator::handle_init, this) }
   , srv_location{ n.advertiseService("/body_control/linear_actuator_location", &sender_actuator::handle_location,
                                      this) }
-  , can{ can }
+  , dev{ dev }
 {
   pn.param<bool>("invert_center_actuator_direction", invert_center_actuator_direction, false);
   pn.param<bool>("invert_left_actuator_direction", invert_left_actuator_direction, false);
@@ -91,7 +91,7 @@ void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstP
   frame.data[3] = msg->actuators[0].power;
   frame.data[4] = msg->actuators[1].power;
   frame.data[5] = msg->actuators[2].power;
-  can.send(frame);
+  dev.send_can(frame);
 }
 
 void sender_actuator::handle_srv_resp(const scbdriver::LinearActuatorServiceResponse::ConstPtr& msg)
@@ -128,7 +128,7 @@ bool sender_actuator::handle_init(scbdriver::InitLinearActuator::Request& req,
     frame.data[3] = adjust_direction(2, req.directions.data[2]);
     frame.data[7] = request_id;
 
-    can.send(frame);
+    dev.send_can(frame);
   }
 
   // wait for response
@@ -181,7 +181,7 @@ bool sender_actuator::handle_location(scbdriver::LinearActuatorLocation::Request
     frame.data[6] = req.power.data[2];
     frame.data[7] = request_id;
 
-    can.send(frame);
+    dev.send_can(frame);
   }
 
   // wait for response
