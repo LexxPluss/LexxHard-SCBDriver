@@ -28,7 +28,8 @@
 #include <thread>
 #include <iostream>
 #include "ros/ros.h"
-#include "devif.hpp"
+#include "canif.hpp"
+#include "uartif.hpp"
 #include "receiver_actuator.hpp"
 #include "receiver_bmu.hpp"
 #include "receiver_board.hpp"
@@ -56,32 +57,21 @@ public:
   {
     switch (frame.can_id)
     {
-      case 0x100:
-      case 0x101:
-      case 0x103:
-      case 0x110:
-      case 0x111:
-      case 0x112:
-      case 0x113:
-      case 0x120:
-      case 0x130:
+      case 0x100: case 0x101: case 0x103:
+      case 0x110: case 0x111: case 0x112: case 0x113:
+      case 0x120: case 0x130:
         bmu.handle(frame);
         break;
-      case 0x200:
-      case 0x201:
-      case 0x202:
+      case 0x200: case 0x201: case 0x202:
         pgv.handle(frame);
         break;
       case 0x204:
         uss.handle(frame);
         break;
-      case 0x206:
-      case 0x207:
+      case 0x206: case 0x207:
         imu.handle(frame);
         break;
-      case 0x209:
-      case 0x20a:
-      case 0x213:
+      case 0x209: case 0x20a: case 0x213:
         actuator.handle(frame);
         break;
       case 0x20c:
@@ -119,57 +109,7 @@ private:
   receiver_tof tof;
 };
 
-bool canif_configure(devif& dev)
-{
-  // clang-format off
-  can_filter filter[]{
-      {0x100, CAN_SFF_MASK},
-      {0x101, CAN_SFF_MASK},
-      {0x103, CAN_SFF_MASK},
-      {0x110, CAN_SFF_MASK},
-      {0x111, CAN_SFF_MASK},
-      {0x112, CAN_SFF_MASK},
-      {0x113, CAN_SFF_MASK},
-      {0x120, CAN_SFF_MASK},
-      {0x130, CAN_SFF_MASK},
-      {0x200, CAN_SFF_MASK},
-      {0x201, CAN_SFF_MASK},
-      {0x202, CAN_SFF_MASK},
-      {0x204, CAN_SFF_MASK},
-      {0x206, CAN_SFF_MASK},
-      {0x207, CAN_SFF_MASK},
-      {0x209, CAN_SFF_MASK},
-      {0x20a, CAN_SFF_MASK},
-      {0x20c, CAN_SFF_MASK},
-      {0x20e, CAN_SFF_MASK},
-      {0x210, CAN_SFF_MASK},
-      {0x212, CAN_SFF_MASK},
-      {0x213, CAN_SFF_MASK},
-  };
-  // clang-format on
-
-  if (dev.add_can("can1", filter, sizeof filter)  < 0)
-  {
-    std::cerr << "devif:add_can() failed" << std::endl;
-    return false; 
-  }
-
-  return true;
-}
-
-bool uartif_configure(devif& dev, const std::string& device, uint32_t baudrate)
-{
-  if (dev.add_uart(device, baudrate) < 0)
-  {
-    std::cerr << "devif::add_uart() failed" << std::endl;
-    return false;
-  }
-
-  return true;
-}
-
 }  // namespace
-
 
 int main(int argc, char* argv[])
 {
@@ -178,61 +118,79 @@ int main(int argc, char* argv[])
   ros::NodeHandle pn("~");
 
   bool const use_tof_sensor_board = pn.param<bool>("use_tof_sensor_board", false);
-  std::string const tof_sensor_board_uart_port = pn.param<std::string>("tof_sensor_board_uart_port", "/dev/ttyACM0");
-  uint32_t const tof_sensor_board_baudrate = static_cast<uint32_t>(pn.param<int>("tof_sensor_board_baudrate", 115200));
+  std::string const tof_uart_port = pn.param<std::string>("tof_sensor_board_uart_port", "/dev/ttyACM0");
+  uint32_t const tof_baudrate = static_cast<uint32_t>(pn.param<int>("tof_sensor_board_baudrate", 115200));
 
   handler handler{n, pn};
 
-  devif::queue_type queue;
-  devif dev{queue};
-
-  // Initialize CAN interface
-  if (!canif_configure(dev))
+  // CAN setup
+  canif::queue_type can_queue;
+  canif can{can_queue};
+  can_filter filter[]{
+      {0x100, CAN_SFF_MASK}, {0x101, CAN_SFF_MASK}, {0x103, CAN_SFF_MASK},
+      {0x110, CAN_SFF_MASK}, {0x111, CAN_SFF_MASK}, {0x112, CAN_SFF_MASK},
+      {0x113, CAN_SFF_MASK}, {0x120, CAN_SFF_MASK}, {0x130, CAN_SFF_MASK},
+      {0x200, CAN_SFF_MASK}, {0x201, CAN_SFF_MASK}, {0x202, CAN_SFF_MASK},
+      {0x204, CAN_SFF_MASK}, {0x206, CAN_SFF_MASK}, {0x207, CAN_SFF_MASK},
+      {0x209, CAN_SFF_MASK}, {0x20a, CAN_SFF_MASK}, {0x20c, CAN_SFF_MASK},
+      {0x20e, CAN_SFF_MASK}, {0x210, CAN_SFF_MASK}, {0x212, CAN_SFF_MASK},
+      {0x213, CAN_SFF_MASK},
+  };
+  if (can.init("can1", filter, sizeof filter) < 0)
   {
     return -1;
   }
 
-  // Initialize UART interface (for ToF sensor board)
+  // UART setup
+  uartif::queue_type uart_queue;
+  uartif uart{tof_uart_port, tof_baudrate, uart_queue};
   if (use_tof_sensor_board)
   {
-    if(!uartif_configure(dev, tof_sensor_board_uart_port, tof_sensor_board_baudrate))
+    if (uart.init() < 0)
     {
       return -1;
     }
   }
 
+  // Start I/O threads
   std::atomic<bool> running{true};
-  std::thread io_thread{[&] {
+  std::thread can_thread{[&] {
     while (running.load(std::memory_order_relaxed))
     {
-      dev.poll(10);
+      can.poll(10);
+    }
+  }};
+  std::thread uart_thread{[&] {
+    while (running.load(std::memory_order_relaxed))
+    {
+      uart.poll(10);
     }
   }};
 
+  // Main loop
   while (ros::ok())
   {
-    device_message msg;
-    while (queue.pop(msg))
+    can_frame frame;
+    while (can_queue.pop(frame))
     {
-      std::visit([&](auto& m) {
-        using T = std::decay_t<decltype(m)>;
-        if constexpr (std::is_same_v<T, can_message>)
-	{
-          handler.handle_can(m.frame);
-	}
-        else if constexpr (std::is_same_v<T, uart_message>)
-	{
-          handler.handle_uart(m.packet);
-	}
-      }, msg);
+      handler.handle_can(frame);
+    }
+
+    std::vector<uint8_t> packet;
+    while (uart_queue.pop(packet))
+    {
+      handler.handle_uart(packet);
     }
 
     ros::spinOnce();
   }
 
   running.store(false, std::memory_order_relaxed);
-  io_thread.join();
-  dev.term();
+  can_thread.join();
+  uart_thread.join();
+
+  can.term();
+  uart.term();
 
   return 0;
 }

@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) 2025, LexxPluss Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#pragma once
+
+#include <linux/can.h>
+#include <net/if.h>
+#include <functional>
+#include <string>
+#include "spsc_queue.hpp"
+
+struct can_frame;
+
+class canif
+{
+public:
+  static constexpr size_t QUEUE_CAPACITY = 256;
+  using queue_type = spsc_queue<can_frame, QUEUE_CAPACITY>;
+
+  canif() = default;
+  explicit canif(queue_type& queue);
+  ~canif();
+
+  canif(const canif&) = delete;
+  canif& operator=(const canif&) = delete;
+
+  int init(const std::string& ifname, const can_filter* filter, size_t nfilter);
+  void term();
+  int poll(int timeout_ms);
+  int send(const can_frame& frame) const;
+
+private:
+  queue_type* queue{nullptr};
+  int sock{-1};
+};
