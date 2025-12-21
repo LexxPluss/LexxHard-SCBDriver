@@ -61,7 +61,7 @@ public:
       return false;
     }
 
-    item = std::move(buffer[tail]);
+    item = std::move(buffer[tail_idx]);
     tail.store((tail_idx + 1) % Capacity, std::memory_order_release);
     return true;
   }
