@@ -157,13 +157,13 @@ int main(int argc, char* argv[])
   std::thread can_thread{[&] {
     while (running.load(std::memory_order_relaxed))
     {
-      can.poll(10);
+      can.poll(1);
     }
   }};
   std::thread uart_thread{[&] {
     while (running.load(std::memory_order_relaxed))
     {
-      uart.poll(10);
+      uart.poll(1);
     }
   }};
 
