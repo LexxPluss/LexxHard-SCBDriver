@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, LexxPluss Inc.
+ * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,22 +29,29 @@
 #include <net/if.h>
 #include <functional>
 #include <string>
+#include "spsc_queue.hpp"
 
 struct can_frame;
 
 class canif
 {
 public:
-  canif();
+  static constexpr size_t QUEUE_CAPACITY = 256;
+  using queue_type = spsc_queue<can_frame, QUEUE_CAPACITY>;
+
+  canif() = default;
+  explicit canif(queue_type& queue);
   ~canif();
-  void set_handler(std::function<void(const can_frame& frame)> handler);
-  int init(const can_filter* filter, size_t nfilter);
+
+  canif(const canif&) = delete;
+  canif& operator=(const canif&) = delete;
+
+  int init(const std::string& ifname, const can_filter* filter, size_t nfilter);
   void term();
-  int poll(int timeout_ms) const;
+  int poll(int timeout_ms);
   int send(const can_frame& frame) const;
 
 private:
-  std::function<void(const can_frame& frame)> handler{ nullptr };
-  std::string ifname{ "can1" };
-  int sock{ -1 };
+  queue_type* queue{nullptr};
+  int sock{-1};
 };

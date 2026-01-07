@@ -24,38 +24,26 @@
  */
 
 #pragma once
-#include <functional>
+
+#include <cstdint>
 #include <string>
 #include <vector>
-#include <optional>
-#include <cstdint>
-
-class slip_decoder
-{
-public:
-  slip_decoder();
-  bool decode_byte(uint8_t byte, std::vector<uint8_t>& packet);
-  void reset();
-  static bool verify_parity(const std::vector<uint8_t>& data, uint8_t parity);
-
-private:
-  std::vector<uint8_t> buffer;
-  bool escape_next{false};
-  
-  static constexpr uint8_t SLIP_END = 0xC0;
-  static constexpr uint8_t SLIP_ESC = 0xDB;
-  static constexpr uint8_t SLIP_ESC_END = 0xDC;
-  static constexpr uint8_t SLIP_ESC_ESC = 0xDD;
-  static constexpr size_t MAX_BUFFER_SIZE = 1024;
-};
+#include "slip_decoder.hpp"
+#include "spsc_queue.hpp"
 
 class uartif
 {
 public:
+  static constexpr size_t QUEUE_CAPACITY = 256;
+  using queue_type = spsc_queue<std::vector<uint8_t>, QUEUE_CAPACITY>;
+
   uartif(const std::string& device, uint32_t baudrate);
+  uartif(const std::string& device, uint32_t baudrate, queue_type& queue);
   ~uartif();
 
-  void set_handler(std::function<void(const std::vector<uint8_t>& packet)> handler);
+  uartif(const uartif&) = delete;
+  uartif& operator=(const uartif&) = delete;
+
   int init();
   void term();
   int poll(int timeout_ms) const;
@@ -64,7 +52,6 @@ private:
   const std::string device;
   const uint32_t baudrate;
   int fd{-1};
-  std::function<void(const std::vector<uint8_t>& packet)> handler;
-
+  queue_type* queue{nullptr};
   mutable slip_decoder decoder;
 };

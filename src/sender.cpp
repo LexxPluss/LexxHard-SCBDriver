@@ -25,7 +25,7 @@
 
 #include <iostream>
 #include "ros/ros.h"
-#include "canif.hpp"
+#include "devif.hpp"
 #include "sender_actuator.hpp"
 #include "sender_board.hpp"
 #include "sender_dfu.hpp"
@@ -38,20 +38,22 @@ int main(int argc, char* argv[])
   ros::init(argc, argv, "sender");
   ros::NodeHandle n;
   ros::NodeHandle pn("~");
-  canif can;
-  if (can.init(nullptr, 0) < 0)
+  devif dev;
+
+  if (dev.add_can("can1", nullptr, 0) < 0)
   {
-    std::cerr << "canif::init() failed" << std::endl;
+    std::cerr << "dev::add_can() failed" << std::endl;
     return -1;
   }
-  sender_actuator actuator{ n, pn, can };
-  sender_board board{ n, can };
-  sender_dfu dfu{ n, can };
-  sender_gpio gpio{ n, can };
-  sender_led led{ n, can };
-  sender_pgv pgv{ n, can };
+
+  sender_actuator actuator{ n, pn, dev };
+  sender_board board{ n, dev };
+  sender_dfu dfu{ n, dev };
+  sender_gpio gpio{ n, dev };
+  sender_led led{ n, dev };
+  sender_pgv pgv{ n, dev };
   ros::MultiThreadedSpinner spinner{ 3 };
   spinner.spin();
-  can.term();
+  dev.term();
   return 0;
 }

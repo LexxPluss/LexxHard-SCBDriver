@@ -30,12 +30,12 @@
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 
-class canif;
+class devif;
 
 class sender_gpio
 {
 public:
-  sender_gpio(ros::NodeHandle& n, canif& can);
+  sender_gpio(ros::NodeHandle& n, devif& can);
 
 private:
   template <uint8_t N>
@@ -45,6 +45,6 @@ private:
     .can_id{ 0x211 },
     .can_dlc{ 1 },
   };
-  canif& can;
+  devif& dev;
   static constexpr uint32_t queue_size{ 10 };
 };

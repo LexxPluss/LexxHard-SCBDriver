@@ -24,11 +24,11 @@
  */
 
 #include <linux/can.h>
-#include "canif.hpp"
+#include "devif.hpp"
 #include "sender_led.hpp"
 
-sender_led::sender_led(ros::NodeHandle& n, canif& can)
-  : sub{ n.subscribe("/body_control/led", queue_size, &sender_led::handle, this) }, can{ can }
+sender_led::sender_led(ros::NodeHandle& n, devif& dev)
+  : sub{ n.subscribe("/body_control/led", queue_size, &sender_led::handle, this) }, dev{ dev }
 {
 }
 
@@ -47,7 +47,7 @@ void sender_led::handle(const std_msgs::String::ConstPtr& msg) const
   frame.data[3] = rgb[0];
   frame.data[4] = rgb[1];
   frame.data[5] = rgb[2];
-  can.send(frame);
+  dev.send_can(frame);
 }
 
 void sender_led::decode(const std::string& data, uint8_t& pattern, uint16_t& count_per_minutes, uint8_t rgb[3]) const

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, LexxPluss Inc.
+ * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,19 +25,54 @@
 
 #pragma once
 
-#include "ros/ros.h"
-#include "std_msgs/UInt8MultiArray.h"
+#include <atomic>
+#include <array>
+#include <cstddef>
+#include <utility>
 
-class devif;
-
-class sender_dfu
+template <typename T, size_t Capacity>
+class spsc_queue
 {
 public:
-  sender_dfu(ros::NodeHandle& n, devif& dev);
+  spsc_queue() = default;
+
+  template <typename U>
+  bool push(U&& item)
+  {
+    const size_t head_idx = head.load(std::memory_order_relaxed);
+    const size_t next_idx = (head_idx + 1) % Capacity;
+
+    if (next_idx == tail.load(std::memory_order_acquire))
+    {
+      return false;
+    }
+
+    buffer[head_idx] = std::forward<U>(item);
+    head.store(next_idx, std::memory_order_release);
+    return true;
+  }
+
+  bool pop(T& item)
+  {
+    const size_t tail_idx = tail.load(std::memory_order_relaxed);
+
+    if (tail_idx == head.load(std::memory_order_acquire))
+    {
+      return false;
+    }
+
+    item = std::move(buffer[tail_idx]);
+    tail.store((tail_idx + 1) % Capacity, std::memory_order_release);
+    return true;
+  }
+
+  bool empty() const
+  {
+    return head.load(std::memory_order_acquire) == tail.load(std::memory_order_acquire);
+  }
 
 private:
-  void handle(const std_msgs::UInt8MultiArray::ConstPtr& msg) const;
-  ros::Subscriber sub;
-  devif& dev;
-  static constexpr uint32_t queue_size{ 10 };
+  std::array<T, Capacity> buffer;
+  std::atomic<size_t> head{0};
+  std::atomic<size_t> tail{0};
 };

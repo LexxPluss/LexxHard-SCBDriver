@@ -29,15 +29,11 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <poll.h>
+#include <cerrno>
 #include <cstring>
 
 namespace
 {
-struct packet_with_parity
-{
-  std::vector<uint8_t> payload;
-  uint8_t parity;
-};
 
 int configure_tty(int fd, int baudrate)
 {
@@ -78,6 +74,7 @@ int configure_tty(int fd, int baudrate)
   // Configure raw mode
   tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
   tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+  tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
   tty.c_oflag &= ~OPOST;
 
   // Set non-blocking read
@@ -100,7 +97,10 @@ bool has_data(int fd, int timeout_ms)
   
   if (auto ret{::poll(&fds, 1, timeout_ms)}; ret < 0)
   {
-    std::cerr << "poll(UART) failed" << std::endl;
+    if (errno != EINTR)
+    {
+      std::cerr << "poll(UART) failed" << std::endl;
+    }
     return false;
   }
   else if (ret == 0)
@@ -112,139 +112,7 @@ bool has_data(int fd, int timeout_ms)
   return true;
 }
 
-std::optional<uint8_t> read_byte(pollfd &fds)
-{
-  if(::poll(&fds, 1, 0) <= 0)
-  {
-    return std::nullopt;
-  }
-
-  if (!(fds.revents & POLLIN))
-  {
-    return std::nullopt;
-  }
-
-  uint8_t byte;
-  if (read(fds.fd, &byte, 1) <= 0)
-  {
-    return std::nullopt;
-  }
-
-  return byte;
-}
-
-std::optional<packet_with_parity> read_packet(int fd, slip_decoder& decoder)
-{
-  pollfd fds{.fd{fd}, .events{POLLIN}};
-  std::vector<uint8_t> packet;
-  
-  while (true)
-  {
-    const auto byte_opt = read_byte(fds);
-    if (!byte_opt)
-    {
-      return std::nullopt;
-    }
-
-    if (decoder.decode_byte(*byte_opt, packet))
-    {
-      break;
-    }
-  }
-
-  if (packet.size() < 2)
-  {
-    std::cerr << "UART: packet too short (" << packet.size() << " bytes)" << std::endl;
-    return std::nullopt;
-  }
-  
-  // Separate parity from payload
-  uint8_t parity = packet.back();
-  packet.pop_back();
-  
-  return packet_with_parity{packet, parity};
-}
-
 }  // namespace
-
-slip_decoder::slip_decoder()
-{
-}
-
-void slip_decoder::reset()
-{
-  buffer.clear();
-  escape_next = false;
-}
-
-bool slip_decoder::decode_byte(uint8_t byte, std::vector<uint8_t>& packet)
-{
-  if (byte == SLIP_END)
-  {
-    const bool is_frame_complete = (0 < buffer.size());
-    if (is_frame_complete)
-    {
-      packet = buffer;
-    }
-
-    buffer.clear();
-    escape_next = false;
-    return is_frame_complete;
-  }
-
-  if (!escape_next && (byte == SLIP_ESC))
-  {
-    escape_next = true;
-    return false;
-  }
-
-  if (escape_next)
-  {
-    if (byte == SLIP_ESC_END)
-    {
-      buffer.push_back(SLIP_END);
-    }
-    else if (byte == SLIP_ESC_ESC)
-    {
-      buffer.push_back(SLIP_ESC);
-    }
-    else
-    {
-      // Invalid escape sequence - clear buffer to resync
-      std::cerr << "SLIP: Invalid escape sequence (0x"
-                << std::hex << static_cast<int>(byte) << std::dec
-                << "), resync"
-                << std::endl;
-      buffer.clear();
-    }
-    escape_next = false;
-  }
-  else
-  {
-    buffer.push_back(byte);
-  }
-
-  // Overflow protection
-  if (MAX_BUFFER_SIZE < buffer.size())
-  {
-    std::cerr << "SLIP: Buffer overflow (" << buffer.size() << " bytes), resync" << std::endl;
-    buffer.clear();
-    escape_next = false;
-  }
-
-  return false;
-}
-
-bool slip_decoder::verify_parity(const std::vector<uint8_t>& data, uint8_t parity)
-{
-  uint8_t calc = 0;
-  for (auto byte : data)
-  {
-    calc ^= byte;
-  }
-
-  return calc == parity;
-}
 
 uartif::uartif(const std::string& device, uint32_t baudrate)
   : device{device}
@@ -252,14 +120,16 @@ uartif::uartif(const std::string& device, uint32_t baudrate)
 {
 }
 
+uartif::uartif(const std::string& device, uint32_t baudrate, queue_type& q)
+  : device{device}
+  , baudrate{baudrate}
+  , queue{&q}
+{
+}
+
 uartif::~uartif()
 {
   term();
-}
-
-void uartif::set_handler(std::function<void(const std::vector<uint8_t>& packet)> handler)
-{
-  this->handler = handler;
 }
 
 int uartif::init()
@@ -295,7 +165,7 @@ void uartif::term()
 
 int uartif::poll(int timeout_ms) const
 {
-  if (!handler || fd < 0)
+  if (!queue || fd < 0)
   {
     return 0;
   }
@@ -304,19 +174,51 @@ int uartif::poll(int timeout_ms) const
   {
     return 0;
   }
-  
-  auto result = read_packet(fd, decoder);
-  if (!result)
-  {
-    return 0;
-  }
-  
-  if (!slip_decoder::verify_parity(result->payload, result->parity))
-  {
-    std::cerr << "UART: parity error: " << std::hex << static_cast<int>(result->parity) << std::dec << "size: " << result->payload.size() << std::endl;
-    return 0;
-  }
 
-  handler(result->payload);
-  return 0;
+  uint8_t buf[4096];
+  while (true)
+  {
+    auto n = read(fd, buf, sizeof buf);
+    if (n < 0)
+    {
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+      {
+        return 0;
+      }
+      std::cerr << "read(UART) failed" << std::endl;
+      return -1;
+    }
+
+    if (n == 0)
+    {
+      return 0;
+    }
+
+    for (ssize_t i = 0; i < n; ++i)
+    {
+      std::vector<uint8_t> packet;
+      if (decoder.decode_byte(buf[i], packet))
+      {
+        if (packet.size() < 2)
+        {
+          std::cerr << "UART: packet too short (" << packet.size() << " bytes)" << std::endl;
+          continue;
+        }
+
+        uint8_t parity = packet.back();
+        packet.pop_back();
+        if (slip_decoder::verify_parity(packet, parity))
+        {
+          if (!queue->push(std::move(packet)))
+	  {
+            std::cerr << "UART queue full, dropping packet" << std::endl;
+	  }
+        }
+        else
+        {
+          std::cerr << "UART: parity error" << std::endl;
+        }
+      }
+    }
+  }
 }

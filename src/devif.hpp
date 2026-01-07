@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, LexxPluss Inc.
+ * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,19 +25,63 @@
 
 #pragma once
 
-#include "ros/ros.h"
-#include "std_msgs/UInt8MultiArray.h"
+#include <linux/can.h>
+#include <cstdint>
+#include <string>
+#include <vector>
+#include <variant>
+#include "slip_decoder.hpp"
+#include "spsc_queue.hpp"
 
-class devif;
+struct can_message
+{
+  can_frame frame;
+};
 
-class sender_dfu
+struct uart_message
+{
+  std::vector<uint8_t> packet;
+};
+
+using device_message = std::variant<can_message, uart_message>;
+
+class devif
 {
 public:
-  sender_dfu(ros::NodeHandle& n, devif& dev);
+  static constexpr size_t QUEUE_CAPACITY = 1024;
+  using queue_type = spsc_queue<device_message, QUEUE_CAPACITY>;
+
+  devif() = default;
+  explicit devif(queue_type& queue);
+  ~devif();
+
+  devif(const devif&) = delete;
+  devif& operator=(const devif&) = delete;
+
+  int add_can(const std::string& ifname, const can_filter* filter, size_t nfilter);
+  int add_uart(const std::string& device, uint32_t baudrate);
+
+  int poll(int timeout_ms);
+  void term();
+
+  int send_can(const can_frame& frame) const;
 
 private:
-  void handle(const std_msgs::UInt8MultiArray::ConstPtr& msg) const;
-  ros::Subscriber sub;
-  devif& dev;
-  static constexpr uint32_t queue_size{ 10 };
+  struct can_device
+  {
+    int fd{-1};
+  };
+
+  struct uart_device
+  {
+    int fd{-1};
+    slip_decoder decoder;
+  };
+
+  int read_can(can_device& dev);
+  int read_uart(uart_device& dev);
+
+  queue_type* queue{nullptr};
+  std::vector<can_device> can_devices;
+  std::vector<uart_device> uart_devices;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, LexxPluss Inc.
+ * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,11 +29,13 @@
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <unistd.h>
+#include <cerrno>
 #include <cstring>
 #include <iostream>
 #include "canif.hpp"
 
-canif::canif()
+canif::canif(queue_type& q)
+  : queue{&q}
 {
 }
 
@@ -42,12 +44,7 @@ canif::~canif()
   term();
 }
 
-void canif::set_handler(std::function<void(const can_frame& frame)> handler)
-{
-  this->handler = handler;
-}
-
-int canif::init(const can_filter* filter, size_t nfilter)
+int canif::init(const std::string& ifname, const can_filter* filter, size_t nfilter)
 {
   sock = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   if (sock < 0)
@@ -57,6 +54,8 @@ int canif::init(const can_filter* filter, size_t nfilter)
   }
   ifreq ifr;
   strncpy(ifr.ifr_name, ifname.c_str(), IFNAMSIZ - 1);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
   if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0)
   {
     std::cerr << "ioctl(SIOCGIFINDEX) failed" << std::endl;
@@ -94,8 +93,13 @@ void canif::term()
   }
 }
 
-int canif::poll(int timeout_ms) const
+int canif::poll(int timeout_ms)
 {
+  if (!queue || sock < 0)
+  {
+    return 0;
+  }
+
   pollfd fds{ .fd{ sock }, .events{ POLLIN } };
   for (int i{ 0 }; i < 10; ++i)
   {
@@ -104,7 +108,7 @@ int canif::poll(int timeout_ms) const
       std::cerr << "poll(CAN) failed" << std::endl;
       return -1;
     }
-    else if (ret == 0)
+    else if (ret == 0 || !(fds.revents & POLLIN))
     {
       return 0;
     }
@@ -116,8 +120,10 @@ int canif::poll(int timeout_ms) const
         std::cerr << "read(CAN) failed" << std::endl;
         return -1;
       }
-      if (handler)
-        handler(frame);
+      if (!queue->push(frame))
+      {
+        std::cerr << "CAN queue full, dropping frame" << std::endl;
+      }
     }
   }
   return 0;
@@ -125,6 +131,11 @@ int canif::poll(int timeout_ms) const
 
 int canif::send(const can_frame& frame) const
 {
+  if (sock < 0)
+  {
+    return -1;
+  }
+
   if (write(sock, &frame, sizeof frame) < 0)
   {
     std::cerr << "write(CAN) failed" << std::endl;

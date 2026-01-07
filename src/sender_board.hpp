@@ -30,12 +30,12 @@
 #include "std_msgs/String.h"
 #include "std_srvs/SetBool.h"
 
-class canif;
+class devif;
 
 class sender_board
 {
 public:
-  sender_board(ros::NodeHandle& n, canif& can);
+  sender_board(ros::NodeHandle& n, devif& dev);
 
 private:
   void handle_ems(const std_msgs::Bool::ConstPtr& msg);
@@ -47,7 +47,7 @@ private:
   void handle_emergency_switch(const std_msgs::Bool::ConstPtr& msg);
   ros::Subscriber sub_ems, sub_power_off, sub_wheel_off, sub_heartbeat, sub_lockdown, sub_emergency_switch;
   ros::ServiceServer srv_auto_charge_request_enable;
-  canif& can;
+  devif& dev;
   bool prev_emergency_switch{ false };
   static constexpr uint32_t queue_size{ 10 };
   can_frame frame{ .can_id{ 0x20F }, .can_dlc{ 6 }, .data{ 0 } };

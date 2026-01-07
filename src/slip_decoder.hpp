@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, LexxPluss Inc.
+ * Copyright (c) 2025, LexxPluss Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,19 +25,24 @@
 
 #pragma once
 
-#include "ros/ros.h"
-#include "std_msgs/UInt8MultiArray.h"
+#include <cstdint>
+#include <vector>
 
-class devif;
-
-class sender_dfu
+class slip_decoder
 {
 public:
-  sender_dfu(ros::NodeHandle& n, devif& dev);
+  slip_decoder() = default;
+  bool decode_byte(uint8_t byte, std::vector<uint8_t>& packet);
+  void reset();
+  static bool verify_parity(const std::vector<uint8_t>& data, uint8_t parity);
 
 private:
-  void handle(const std_msgs::UInt8MultiArray::ConstPtr& msg) const;
-  ros::Subscriber sub;
-  devif& dev;
-  static constexpr uint32_t queue_size{ 10 };
+  std::vector<uint8_t> buffer;
+  bool escape_next{false};
+
+  static constexpr uint8_t SLIP_END = 0xC0;
+  static constexpr uint8_t SLIP_ESC = 0xDB;
+  static constexpr uint8_t SLIP_ESC_END = 0xDC;
+  static constexpr uint8_t SLIP_ESC_ESC = 0xDD;
+  static constexpr size_t MAX_BUFFER_SIZE = 1024;
 };
