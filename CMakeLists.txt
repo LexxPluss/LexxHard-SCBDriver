@@ -125,3 +125,13 @@ install(TARGETS receiver
 install(TARGETS sender
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
+
+if(CATKIN_ENABLE_TESTING)
+  catkin_add_gtest(test_tof_pipeline
+    test/test_tof_pipeline.cpp
+    src/slip_decoder.cpp
+  )
+  target_include_directories(test_tof_pipeline PRIVATE src)
+  target_link_libraries(test_tof_pipeline ${catkin_LIBRARIES})
+  add_dependencies(test_tof_pipeline ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+endif()
