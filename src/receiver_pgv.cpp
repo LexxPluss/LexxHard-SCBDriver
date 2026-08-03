@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <linux/can.h>
 #include <algorithm>
 #include "receiver_pgv.hpp"
@@ -46,17 +48,17 @@ bool receiver_pgv::fill_buffer(const can_frame& frame)
 {
   if (frame.can_dlc != 8)
     return false;
-  if (frame.can_id == 0x200)
+  if (frame.can_id == lexxhard::can_ids::PGV_RX_0)
   {
     counter[0] = frame.data[7];
     std::copy_n(frame.data, 7, buffer);
   }
-  else if (frame.can_id == 0x201)
+  else if (frame.can_id == lexxhard::can_ids::PGV_RX_1)
   {
     counter[1] = frame.data[7];
     std::copy_n(frame.data, 7, buffer + 7);
   }
-  else if (frame.can_id == 0x202)
+  else if (frame.can_id == lexxhard::can_ids::PGV_RX_2)
   {
     counter[2] = frame.data[7];
     std::copy_n(frame.data, 7, buffer + 14);

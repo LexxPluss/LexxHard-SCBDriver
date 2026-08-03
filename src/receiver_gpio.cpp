@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <linux/can.h>
 #include "std_msgs/Bool.h"
 #include "receiver_gpio.hpp"
@@ -48,7 +50,7 @@ receiver_gpio::receiver_gpio(ros::NodeHandle& n)
 
 void receiver_gpio::handle(const can_frame& frame) const
 {
-  if (frame.can_id != 0x212)
+  if (frame.can_id != lexxhard::can_ids::GPIO_RX)
   {
     return;
   }

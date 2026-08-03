@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <linux/can.h>
 #include <sstream>
 #include "receiver_bmu.hpp"
@@ -34,7 +36,7 @@ receiver_bmu::receiver_bmu(ros::NodeHandle& n)
 
 void receiver_bmu::handle(const can_frame& frame)
 {
-  if (frame.can_id == 0x100)
+  if (frame.can_id == lexxhard::can_ids::BMU_0)
   {
     bmudata.mod_status1 = frame.data[0];
     bmudata.bmu_status = frame.data[1];
@@ -43,41 +45,41 @@ void receiver_bmu::handle(const can_frame& frame)
     bmudata.soh = frame.data[4];
     bmudata.fet_temp = (frame.data[5] << 8) | frame.data[6];
   }
-  else if (frame.can_id == 0x101)
+  else if (frame.can_id == lexxhard::can_ids::BMU_1)
   {
     bmudata.pack_current = (frame.data[0] << 8) | frame.data[1];
     bmudata.charging_current = (frame.data[2] << 8) | frame.data[3];
     bmudata.pack_voltage = (frame.data[4] << 8) | frame.data[5];
     bmudata.mod_status2 = frame.data[6];
   }
-  else if (frame.can_id == 0x103)
+  else if (frame.can_id == lexxhard::can_ids::BMU_2)
   {
     bmudata.design_capacity = (frame.data[0] << 8) | frame.data[1];
     bmudata.full_charge_capacity = (frame.data[2] << 8) | frame.data[3];
     bmudata.remain_capacity = (frame.data[4] << 8) | frame.data[5];
   }
-  else if (frame.can_id == 0x110)
+  else if (frame.can_id == lexxhard::can_ids::BMU_3)
   {
     bmudata.max_voltage.value = (frame.data[0] << 8) | frame.data[1];
     bmudata.max_voltage.id = frame.data[2];
     bmudata.min_voltage.value = (frame.data[4] << 8) | frame.data[5];
     bmudata.min_voltage.id = frame.data[6];
   }
-  else if (frame.can_id == 0x111)
+  else if (frame.can_id == lexxhard::can_ids::BMU_4)
   {
     bmudata.max_temp.value = (frame.data[0] << 8) | frame.data[1];
     bmudata.max_temp.id = frame.data[2];
     bmudata.min_temp.value = (frame.data[4] << 8) | frame.data[5];
     bmudata.min_temp.id = frame.data[6];
   }
-  else if (frame.can_id == 0x112)
+  else if (frame.can_id == lexxhard::can_ids::BMU_5)
   {
     bmudata.max_current.value = (frame.data[0] << 8) | frame.data[1];
     bmudata.max_current.id = frame.data[2];
     bmudata.min_current.value = (frame.data[4] << 8) | frame.data[5];
     bmudata.min_current.id = frame.data[6];
   }
-  else if (frame.can_id == 0x113)
+  else if (frame.can_id == lexxhard::can_ids::BMU_6)
   {
     bmudata.bmu_fw_ver = frame.data[0];
     bmudata.mod_fw_ver = frame.data[1];
@@ -86,14 +88,14 @@ void receiver_bmu::handle(const can_frame& frame)
     bmudata.bmu_alarm1 = frame.data[4];
     bmudata.bmu_alarm2 = frame.data[5];
   }
-  else if (frame.can_id == 0x120)
+  else if (frame.can_id == lexxhard::can_ids::BMU_7)
   {
     bmudata.min_cell_voltage.value = (frame.data[0] << 8) | frame.data[1];
     bmudata.min_cell_voltage.id = frame.data[2];
     bmudata.max_cell_voltage.value = (frame.data[4] << 8) | frame.data[5];
     bmudata.max_cell_voltage.id = frame.data[6];
   }
-  else if (frame.can_id == 0x130)
+  else if (frame.can_id == lexxhard::can_ids::BMU_8)
   {
     bmudata.manufacturing = (frame.data[0] << 8) | frame.data[1];
     bmudata.inspection = (frame.data[2] << 8) | frame.data[3];

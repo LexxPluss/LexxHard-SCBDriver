@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <linux/can.h>
 #include "receiver_imu.hpp"
 
@@ -45,14 +47,14 @@ bool receiver_imu::fill_buffer(const can_frame& frame)
 {
   if (frame.can_dlc != 7)
     return false;
-  if (frame.can_id == 0x206)
+  if (frame.can_id == lexxhard::can_ids::IMU_0)
   {
     counter[0] = frame.data[6];
     accel[0] = (frame.data[0] << 8) | frame.data[1];
     accel[1] = (frame.data[2] << 8) | frame.data[3];
     accel[2] = (frame.data[4] << 8) | frame.data[5];
   }
-  else if (frame.can_id == 0x207)
+  else if (frame.can_id == lexxhard::can_ids::IMU_1)
   {
     counter[1] = frame.data[6];
     gyro[0] = (frame.data[0] << 8) | frame.data[1];

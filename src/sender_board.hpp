@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "can_ids.hpp"
+
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/String.h"
@@ -50,5 +52,5 @@ private:
   devif& dev;
   bool prev_emergency_switch{ false };
   static constexpr uint32_t queue_size{ 10 };
-  can_frame frame{ .can_id{ 0x20F }, .can_dlc{ 6 }, .data{ 0 } };
+  can_frame frame{ .can_id{ lexxhard::can_ids::BOARD_TX }, .can_dlc{ 6 }, .data{ 0 } };
 };

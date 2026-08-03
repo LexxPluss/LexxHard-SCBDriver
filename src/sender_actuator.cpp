@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <mutex>
 #include <optional>
 #include <condition_variable>
@@ -82,7 +84,7 @@ void sender_actuator::handle(const scbdriver::LinearActuatorControlArray::ConstP
   }
 
   can_frame frame{
-    .can_id{ 0x208 },
+    .can_id{ lexxhard::can_ids::ACTUATOR_TX_0 },
     .can_dlc{ 6 },
   };
   frame.data[0] = adjust_direction(0, msg->actuators[0].direction);
@@ -119,7 +121,7 @@ bool sender_actuator::handle_init(scbdriver::InitLinearActuator::Request& req,
   // send request
   {
     can_frame frame{
-      .can_id{ 0x20b },
+      .can_id{ lexxhard::can_ids::ACTUATOR_TX_1 },
       .can_dlc{ 8 },
     };
     frame.data[0] = 1;  // 1 means init
@@ -169,7 +171,7 @@ bool sender_actuator::handle_location(scbdriver::LinearActuatorLocation::Request
   // send request
   {
     can_frame frame{
-      .can_id{ 0x20b },
+      .can_id{ lexxhard::can_ids::ACTUATOR_TX_1 },
       .can_dlc{ 8 },
     };
     frame.data[0] = 0;  // 0 means location
