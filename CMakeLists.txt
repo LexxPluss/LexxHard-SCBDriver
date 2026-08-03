@@ -85,6 +85,8 @@ add_executable(
   src/receiver_gpio.cpp
   src/receiver_tug_encoder.cpp
   src/receiver_tof.cpp
+  src/tof_grid_assembler.cpp
+  src/tof_can_config.cpp
   src/slip_decoder.cpp
 )
 add_executable(
@@ -127,11 +129,25 @@ install(TARGETS sender
 )
 
 if(CATKIN_ENABLE_TESTING)
+  # test_tof_pipeline includes receiver_tof.cpp directly, which now reaches into the
+  # assembler, so it needs that translation unit as well.
   catkin_add_gtest(test_tof_pipeline
     test/test_tof_pipeline.cpp
     src/slip_decoder.cpp
+    src/tof_grid_assembler.cpp
   )
   target_include_directories(test_tof_pipeline PRIVATE src)
   target_link_libraries(test_tof_pipeline ${catkin_LIBRARIES})
   add_dependencies(test_tof_pipeline ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+  # Driven entirely by the golden vectors vendored from the firmware repository, so this
+  # target needs neither ROS nor a CAN interface.
+  catkin_add_gtest(test_tof_grid_assembler
+    test/test_tof_grid_assembler.cpp
+    src/tof_grid_assembler.cpp
+    src/tof_can_config.cpp
+  )
+  target_include_directories(test_tof_grid_assembler PRIVATE src test)
+  target_link_libraries(test_tof_grid_assembler ${catkin_LIBRARIES})
+  add_dependencies(test_tof_grid_assembler ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 endif()

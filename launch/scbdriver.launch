@@ -1,8 +1,16 @@
 <launch>
   <node name="sender"   pkg="scbdriver" type="sender"   output="screen" />
   <node name="receiver" pkg="scbdriver" type="receiver" output="screen">
-    <param name="use_tof_sensor_board" value="true" />
+    <!-- disabled | legacy_uart | scb_can.  legacy_uart is the standalone Nucleo ToF
+         board over SLIP; scb_can is the differential-I2C chain on the SCB.  Only one can
+         be active, so the two paths can never publish to the same topics at once. -->
+    <param name="tof_transport" value="legacy_uart" />
     <param name="tof_sensor_board_uart_port" value="/dev/ttyACM0" />
     <param name="tof_sensor_board_baudrate" value="460800" />
+    <!-- For tof_transport=scb_can, also set tof_can_data_id and tof_can_health_id.  They
+         have no defaults on purpose: the company CAN identifier allocation is still
+         pending and a placeholder value must not be able to reach a robot.  The node
+         exits with a fatal error if they are missing, rather than quietly running with
+         ToF disabled while the configuration claims it is on. -->
   </node>
 </launch>

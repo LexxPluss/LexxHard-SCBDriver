@@ -29,6 +29,8 @@
 
 #include "std_msgs/Float32MultiArray.h"
 
+#include <linux/can.h>
+
 #include "receiver_tof.hpp"
 
 namespace
@@ -241,5 +243,127 @@ void receiver_tof::handle(const std::vector<uint8_t>& frame)
   {
     std::cerr << "Invalid sensor ID in ToF packet: "
               << static_cast<int>(packet->sensor_id) << std::endl;
+  }
+}
+
+namespace {
+
+const char* event_text(lexxhard::tof_grid_assembler::event e)
+{
+  using ev = lexxhard::tof_grid_assembler::event;
+  switch (e) {
+  case ev::INCOMPLETE_BY_TIMEOUT: return "grid incomplete at the 300 ms timeout";
+  case ev::INCOMPLETE_BY_GENERATION_CHANGE: return "grid abandoned, next generation started";
+  case ev::DUPLICATE_CHUNK_IDENTICAL: return "duplicate chunk (identical, ignored)";
+  case ev::CONFLICTING_CHUNK: return "conflicting chunk, generation retired";
+  case ev::DUPLICATE_HEALTH_IDENTICAL: return "duplicate health frame (identical, ignored)";
+  case ev::CONFLICTING_HEALTH: return "conflicting health frame, generation retired";
+  case ev::MALFORMED_HEADER: return "malformed frame header";
+  case ev::HEALTH_COUNT_MISMATCH: return "health valid_zone_count disagrees with the grid";
+  case ev::ORPHAN_HEALTH_TIMEOUT: return "health frame arrived with no data";
+  case ev::FRAME_FOR_RETIRED_GENERATION: return "frame for an already retired generation";
+  case ev::SOURCE_NEVER_SEEN: return "no ToF frame has EVER arrived from this source";
+  case ev::SOURCE_STALE: return "ToF source has stopped producing usable grids";
+  case ev::SOURCE_RECOVERED: return "ToF source recovered";
+  default: return nullptr;
+  }
+}
+
+}  // namespace
+
+void receiver_tof::configure_can(uint32_t data_can_id, uint32_t health_can_id, uint32_t now_ms)
+{
+  assembler = std::make_unique<lexxhard::tof_grid_assembler>(data_can_id, health_can_id, now_ms);
+}
+
+void receiver_tof::handle_can(const can_frame& frame, uint32_t now_ms)
+{
+  if (!assembler)
+    return;
+  if (auto g = assembler->consume(frame.can_id, frame.can_dlc, frame.data, now_ms))
+    publish_grid(*g);
+  drain_diagnostics();
+}
+
+void receiver_tof::poll(uint32_t now_ms)
+{
+  if (!assembler)
+    return;
+  assembler->poll(now_ms);
+  drain_diagnostics();
+  report_persistent_state(now_ms);
+}
+
+void receiver_tof::publish_grid(const lexxhard::tof_grid_assembler::grid& g)
+{
+  using asm_t = lexxhard::tof_grid_assembler;
+
+  std_msgs::Float32MultiArray msg;
+  msg.data.reserve(asm_t::ZONES);
+  for (uint16_t mm : g.zones_mm)
+  {
+    // The published contract is unchanged from the UART path: exactly 64 floats,
+    // row-major, metres, -1.0 where there is no valid target.
+    msg.data.push_back(mm == asm_t::INVALID_MM ? -1.0f : conv_from_raw_distance(mm));
+  }
+
+  // Mapped through the source table, never by arithmetic on the id. source 0 is the
+  // RIGHT sensor, which reverses the legacy sensor_id convention.
+  if (g.source == asm_t::SOURCE_FRONT_RIGHT)
+    pub_low_object_right.publish(msg);
+  else if (g.source == asm_t::SOURCE_FRONT_LEFT)
+    pub_low_object_left.publish(msg);
+}
+
+void receiver_tof::drain_diagnostics()
+{
+  using asm_t = lexxhard::tof_grid_assembler;
+  using ev = asm_t::event;
+
+  for (const auto& d : assembler->drain_events())
+  {
+    const char* text = event_text(d.kind);
+    if (text == nullptr)
+      continue;
+    const char* who = asm_t::source_name(d.source);
+
+    // The watchdog events name the source and the state. "a ToF source stopped" tells an
+    // operator neither which sensor nor whether frames are still arriving, and those two
+    // point at completely different faults, which is the whole reason the state is
+    // four-valued rather than a boolean.
+    if (d.kind == ev::SOURCE_NEVER_SEEN || d.kind == ev::SOURCE_STALE)
+      ROS_ERROR("ToF %s: %s (%s)", who, asm_t::state_name(d.state), text);
+    else if (d.kind == ev::SOURCE_RECOVERED)
+      ROS_INFO("ToF %s: recovered", who);
+    else
+      ROS_WARN_THROTTLE(5.0, "ToF %s: %s", who, text);
+  }
+}
+
+void receiver_tof::report_persistent_state(uint32_t now_ms)
+{
+  using asm_t = lexxhard::tof_grid_assembler;
+
+  // An edge-triggered message in rosout is a record that something happened once, not a
+  // statement of what is true now. Anyone attaching after the transition, or scrolling
+  // past it, sees a healthy-looking log for a sensor that is still down. Until this
+  // publishes a real diagnostic_msgs/DiagnosticArray, re-stating the current fault on a
+  // throttle is the minimum that makes the condition observable rather than historical.
+  for (uint8_t src = 0; src < asm_t::SOURCE_COUNT; ++src)
+  {
+    const auto st = assembler->source_status(src, now_ms);
+    // Gate on the raised alarm, not on the state. Within the startup grace a source is
+    // NEVER_SEEN and that is normal; reporting it would put two sensor faults in the log
+    // about 100 ms into every boot, and an error that always appears is one nobody reads.
+    if (!st.alarm_active)
+    {
+      state_throttle.clear(src);
+      continue;
+    }
+    if (!state_throttle.should_report(src, now_ms))
+      continue;
+    ROS_ERROR("ToF %s: still %s (%u ms since last frame, %u ms since last grid)",
+              asm_t::source_name(src), asm_t::state_name(st.state),
+              st.since_last_frame_ms, st.ever_published ? st.since_last_publish_ms : 0u);
   }
 }
