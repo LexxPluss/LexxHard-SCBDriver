@@ -166,21 +166,25 @@ bool read_tof_can_ids(ros::NodeHandle& pn, uint32_t& data_id, uint32_t& health_i
 {
   bool const has_data = pn.hasParam("tof_can_data_id");
   bool const has_health = pn.hasParam("tof_can_health_id");
-  if (has_data != has_health)
-  {
-    ROS_FATAL("tof_can_data_id and tof_can_health_id are a pair: override both or "
-              "neither (%s is set, %s is not)",
-              has_data ? "tof_can_data_id" : "tof_can_health_id",
-              has_data ? "tof_can_health_id" : "tof_can_data_id");
-    return false;
-  }
 
   int data_raw = lexxhard::TOF_GRID_DATA_ID;
   int health_raw = lexxhard::TOF_GRID_HEALTH_ID;
-  if (has_data)
+  bool data_parsed = true, health_parsed = true;
+  if (has_data && has_health)
   {
-    pn.getParam("tof_can_data_id", data_raw);
-    pn.getParam("tof_can_health_id", health_raw);
+    // getParam returns false for a parameter of the wrong type and leaves the output
+    // untouched; ignoring that would silently keep the default and recreate exactly
+    // the half-override the pair check below forbids.
+    data_parsed = pn.getParam("tof_can_data_id", data_raw);
+    health_parsed = pn.getParam("tof_can_health_id", health_raw);
+  }
+
+  if (std::string const reason =
+          lexxhard::check_tof_id_param_pair(has_data, has_health, data_parsed, health_parsed);
+      !reason.empty())
+  {
+    ROS_FATAL("%s", reason.c_str());
+    return false;
   }
 
   lexxhard::tof_can_ids ids;

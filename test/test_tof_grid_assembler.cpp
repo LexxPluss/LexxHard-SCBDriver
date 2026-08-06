@@ -44,8 +44,8 @@ using tof_contract::FrameKind;
 
 namespace {
 
-// The identifiers are still pending allocation, so the tests pick arbitrary distinct
-// values. Nothing in the assembler or the vectors may depend on the numbers themselves.
+// Deliberately NOT the assigned identifiers (0x214/0x215): nothing in the assembler or
+// the vectors may depend on the numbers themselves, and arbitrary values prove it.
 constexpr uint32_t DATA_ID = 0x2A0;
 constexpr uint32_t HEALTH_ID = 0x2A1;
 
@@ -125,7 +125,7 @@ std::string describe(const std::map<std::string, uint32_t>& m)
 // firmware packer is built against. Bumping this is a deliberate act, not a side effect.
 TEST(TofContract, PinnedContractVersion)
 {
-  EXPECT_STREQ("be5604fcbb089cd967fa87b6244ddd26e6fc83ee1a8767bf184eb484807f5348",
+  EXPECT_STREQ("8a3590d30f1fa334b68a579e3f20a12620afe82bf81328cec9312b662ea1ad1f",
                tof_contract::kContractSha256);
   EXPECT_STREQ("2026-08-02f", tof_contract::kContractVersion);
 }
@@ -435,6 +435,35 @@ TEST(TofCanConfig, RejectsTheReservedDropSenseIdentifier)
   const int reserved = static_cast<int>(lexxhard::can_ids::TOF_DROP_SENSE_RESERVED);
   EXPECT_NE("", validate(reserved, 0x2a1));
   EXPECT_NE("", validate(0x2a0, reserved));
+}
+
+// The override parameters are atomic as a pair, and "present but unparseable" counts as
+// broken, not as absent: getParam() returning false would silently keep the default and
+// mix an override with a default.
+TEST(TofCanConfig, ParamPairNoOverrideIsCoherent)
+{
+  EXPECT_EQ("", lexxhard::check_tof_id_param_pair(false, false, true, true));
+}
+
+TEST(TofCanConfig, ParamPairFullOverrideIsCoherent)
+{
+  EXPECT_EQ("", lexxhard::check_tof_id_param_pair(true, true, true, true));
+}
+
+TEST(TofCanConfig, ParamPairRefusesMixedPresence)
+{
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, false, true, true));
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(false, true, true, true));
+}
+
+TEST(TofCanConfig, ParamPairRefusesAnyParseFailure)
+{
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, false, true))
+      << "data present but not an integer";
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, true, false))
+      << "health present but not an integer";
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, false, false))
+      << "both present but neither an integer";
 }
 
 // 0x20F and 0x211 were missed by a hand-written table purely because they are declared in

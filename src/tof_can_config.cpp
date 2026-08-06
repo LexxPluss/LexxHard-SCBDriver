@@ -81,4 +81,24 @@ std::string validate_tof_can_ids(int data_raw, int health_raw, tof_can_ids& out)
   return {};
 }
 
+std::string check_tof_id_param_pair(bool has_data, bool has_health,
+                                    bool data_parsed, bool health_parsed)
+{
+  if (has_data != has_health)
+    return std::string{"tof_can_data_id and tof_can_health_id are a pair: override both "
+                       "or neither ("} +
+           (has_data ? "tof_can_data_id" : "tof_can_health_id") +
+           " is set, the other is not)";
+  if (has_data && (!data_parsed || !health_parsed)) {
+    std::string which;
+    if (!data_parsed && !health_parsed)
+      which = "tof_can_data_id and tof_can_health_id";
+    else
+      which = !data_parsed ? "tof_can_data_id" : "tof_can_health_id";
+    return which + " must be an integer parameter; a failed parse would silently keep "
+                   "the default and mix an override with a default";
+  }
+  return {};
+}
+
 }  // namespace lexxhard

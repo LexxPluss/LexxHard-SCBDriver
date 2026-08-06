@@ -52,9 +52,9 @@ class receiver_tof
 public:
   receiver_tof(ros::NodeHandle& n);
 
-  // Only called for tof_transport::scb_can. The identifiers have no defaults anywhere:
-  // the company allocation is still pending, and a placeholder that happened to work on a
-  // bench would be a very bad thing to have on a robot.
+  // Only called for tof_transport::scb_can. The identifiers arrive from the caller: the
+  // assigned allocation (wire contract 2026-08-02f) is the parameter-pair default in
+  // receiver.cpp, and nothing below that layer hard-codes a value.
   void configure_can(uint32_t data_can_id, uint32_t health_can_id, uint32_t now_ms);
 
   void handle(const std::vector<uint8_t>& packet);  // legacy UART/SLIP path

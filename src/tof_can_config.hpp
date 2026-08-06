@@ -55,4 +55,15 @@ struct tof_can_ids {
 // intermittent corruption with nothing obviously wrong in this node.
 std::string validate_tof_can_ids(int data_raw, int health_raw, tof_can_ids& out);
 
+// Pair-atomicity of the two override parameters, kept free of ROS so it can be tested.
+// has_* say whether the parameter exists at all; *_parsed say whether getParam()
+// returned it as an integer (pass true when no override was attempted). Empty string
+// when the configuration is coherent — either no override, or a fully parsed pair.
+// Anything else names the parameter at fault: presence of one without the other, and
+// just as important, a parameter that exists but fails integer parsing, which would
+// otherwise silently leave its default in place and recreate the half-override this
+// check exists to forbid.
+std::string check_tof_id_param_pair(bool has_data, bool has_health,
+                                    bool data_parsed, bool health_parsed);
+
 }  // namespace lexxhard

@@ -133,9 +133,10 @@ public:
     uint32_t since_last_publish_ms{0};
   };
 
-  // can_id is compared against the two configured identifiers. They are constructor
-  // arguments rather than constants because the company allocation is still pending;
-  // nothing in this class may hard-code a literal.
+  // can_id is compared against the two configured identifiers. They stay constructor
+  // arguments even now that the allocation is assigned (wire contract 2026-08-02f):
+  // nothing in this class may hard-code a literal, and the tests prove the numbers
+  // carry no meaning by using arbitrary ones.
   tof_grid_assembler(uint32_t data_can_id, uint32_t health_can_id, uint32_t startup_time_ms);
 
   // Returns a grid only when every publish-gate condition holds. Anything doubtful is
