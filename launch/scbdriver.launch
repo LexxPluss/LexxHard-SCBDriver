@@ -7,10 +7,12 @@
     <param name="tof_transport" value="legacy_uart" />
     <param name="tof_sensor_board_uart_port" value="/dev/ttyACM0" />
     <param name="tof_sensor_board_baudrate" value="460800" />
-    <!-- For tof_transport=scb_can, also set tof_can_data_id and tof_can_health_id.  They
-         have no defaults on purpose: the company CAN identifier allocation is still
-         pending and a placeholder value must not be able to reach a robot.  The node
-         exits with a fatal error if they are missing, rather than quietly running with
-         ToF disabled while the configuration claims it is on. -->
+    <!-- For tof_transport=scb_can the identifiers default to the assigned allocation
+         (data 0x214, health 0x215; wire contract 2026-08-02f), so production launch
+         files set nothing here.  tof_can_data_id and tof_can_health_id exist as a
+         pair-atomic bench override: set both integers or neither.  Setting only one,
+         or a value that fails integer parsing or collides with the shared ID table,
+         is fatal at startup rather than quietly running with ToF disabled while the
+         configuration claims it is on. -->
   </node>
 </launch>
