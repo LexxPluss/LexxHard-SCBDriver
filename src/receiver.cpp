@@ -156,17 +156,31 @@ tof_transport resolve_tof_transport(ros::NodeHandle& pn)
   return resolved;
 }
 
-// No defaults: the company CAN identifier allocation is still pending, and a placeholder
-// that happened to work on a bench is exactly the kind of value that ends up on a robot.
+// The identifiers are assigned (wire contract 2026-08-02f: 0x214/0x215, a
+// team-authorized self-assigned integration allocation) and are the defaults here.
+// The pair is atomic configuration: a launch file overrides both (bench) or neither
+// (production). Overriding only one would silently mix an override with a default —
+// refused, because the two ends of such a split configuration have never been tested
+// together and never will be.
 bool read_tof_can_ids(ros::NodeHandle& pn, uint32_t& data_id, uint32_t& health_id)
 {
-  int data_raw = 0, health_raw = 0;
-  if (!pn.getParam("tof_can_data_id", data_raw) ||
-      !pn.getParam("tof_can_health_id", health_raw))
+  bool const has_data = pn.hasParam("tof_can_data_id");
+  bool const has_health = pn.hasParam("tof_can_health_id");
+  if (has_data != has_health)
   {
-    ROS_FATAL("tof_transport=scb_can requires tof_can_data_id and tof_can_health_id; "
-              "they have no defaults");
+    ROS_FATAL("tof_can_data_id and tof_can_health_id are a pair: override both or "
+              "neither (%s is set, %s is not)",
+              has_data ? "tof_can_data_id" : "tof_can_health_id",
+              has_data ? "tof_can_health_id" : "tof_can_data_id");
     return false;
+  }
+
+  int data_raw = lexxhard::TOF_GRID_DATA_ID;
+  int health_raw = lexxhard::TOF_GRID_HEALTH_ID;
+  if (has_data)
+  {
+    pn.getParam("tof_can_data_id", data_raw);
+    pn.getParam("tof_can_health_id", health_raw);
   }
 
   lexxhard::tof_can_ids ids;

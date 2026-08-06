@@ -69,10 +69,15 @@ std::string validate_tof_can_ids(int data_raw, int health_raw, tof_can_ids& out)
   // not merely double-handle a frame: it takes it away from its real owner entirely, and
   // silently. Configuring 0x204 here would stop the ultrasonic frames ever reaching their
   // receiver, and 0x20F would corrupt the board command this driver transmits.
-  for (uint32_t id : {out.data_id, out.health_id}) {
-    if (can_ids::is_taken(id))
-      return "ToF CAN identifier " + hex(id) + " is already in use on this bus";
-  }
+  //
+  // The exemption is per role: each parameter may use its OWN registered allocation
+  // (can_ids::TOF_GRID_DATA / TOF_GRID_HEALTH) or any identifier the table does not
+  // know. Swapping the two registered values, or taking the reserved drop-sense id,
+  // is refused like any other collision.
+  if (out.data_id != can_ids::TOF_GRID_DATA && can_ids::is_taken(out.data_id))
+    return "ToF CAN identifier " + hex(out.data_id) + " is already in use on this bus";
+  if (out.health_id != can_ids::TOF_GRID_HEALTH && can_ids::is_taken(out.health_id))
+    return "ToF CAN identifier " + hex(out.health_id) + " is already in use on this bus";
   return {};
 }
 

@@ -125,9 +125,9 @@ std::string describe(const std::map<std::string, uint32_t>& m)
 // firmware packer is built against. Bumping this is a deliberate act, not a side effect.
 TEST(TofContract, PinnedContractVersion)
 {
-  EXPECT_STREQ("9c09ebe2c5962c7d16a30102fd3e8c0c3f16b4259669039d9890afa882c0a37b",
+  EXPECT_STREQ("be5604fcbb089cd967fa87b6244ddd26e6fc83ee1a8767bf184eb484807f5348",
                tof_contract::kContractSha256);
-  EXPECT_STREQ("2026-08-02e", tof_contract::kContractVersion);
+  EXPECT_STREQ("2026-08-02f", tof_contract::kContractVersion);
 }
 
 TEST(TofContract, ConstantsMatchImplementation)
@@ -381,16 +381,60 @@ TEST(TofCanConfig, AcceptsAFreeIdentifierPair)
 }
 
 // The single most valuable property of the shared table: nothing already on the bus can
-// be handed to the ToF transport, in either direction.
+// be handed to the ToF transport, in either direction. The two ToF rows themselves are
+// the one exemption, and only in their own role — the registered data id is valid as the
+// data id but refused as the health id, and vice versa.
 TEST(TofCanConfig, RejectsEveryIdentifierAlreadyOnTheBus)
 {
   namespace ids = lexxhard::can_ids;
   for (size_t i = 0; i < ids::kTableCount; ++i) {
     const int taken = static_cast<int>(ids::kTable[i].id);
     SCOPED_TRACE(taken);
-    EXPECT_NE("", validate(taken, 0x2a1)) << "accepted as the data id";
-    EXPECT_NE("", validate(0x2a0, taken)) << "accepted as the health id";
+    if (taken == static_cast<int>(ids::TOF_GRID_DATA)) {
+      EXPECT_EQ("", validate(taken, 0x2a1)) << "own allocation refused as the data id";
+      EXPECT_NE("", validate(0x2a0, taken)) << "data allocation accepted as the health id";
+    } else if (taken == static_cast<int>(ids::TOF_GRID_HEALTH)) {
+      EXPECT_NE("", validate(taken, 0x2a1)) << "health allocation accepted as the data id";
+      EXPECT_EQ("", validate(0x2a0, taken)) << "own allocation refused as the health id";
+    } else {
+      EXPECT_NE("", validate(taken, 0x2a1)) << "accepted as the data id";
+      EXPECT_NE("", validate(0x2a0, taken)) << "accepted as the health id";
+    }
   }
+}
+
+// The assigned defaults themselves: valid as a pair, equal to the registered table rows,
+// pairwise distinct 11-bit values (the same properties the firmware side asserts).
+TEST(TofCanConfig, AssignedDefaultsAreValidAndRegistered)
+{
+  namespace ids = lexxhard::can_ids;
+  lexxhard::tof_can_ids out;
+  EXPECT_EQ("", lexxhard::validate_tof_can_ids(lexxhard::TOF_GRID_DATA_ID,
+                                               lexxhard::TOF_GRID_HEALTH_ID, out));
+  EXPECT_EQ(ids::TOF_GRID_DATA, out.data_id);
+  EXPECT_EQ(ids::TOF_GRID_HEALTH, out.health_id);
+  EXPECT_NE(ids::TOF_GRID_DATA, ids::TOF_GRID_HEALTH);
+  EXPECT_NE(ids::TOF_GRID_DATA, ids::TOF_DROP_SENSE_RESERVED);
+  EXPECT_NE(ids::TOF_GRID_HEALTH, ids::TOF_DROP_SENSE_RESERVED);
+  EXPECT_LE(ids::TOF_GRID_DATA, 0x7ffu);
+  EXPECT_LE(ids::TOF_GRID_HEALTH, 0x7ffu);
+  EXPECT_LE(ids::TOF_DROP_SENSE_RESERVED, 0x7ffu);
+}
+
+// Swapping the pair would make this driver parse health frames as data; each value is
+// only exempt in its own role, so the swap is refused like any other collision.
+TEST(TofCanConfig, RejectsRoleSwappedDefaults)
+{
+  EXPECT_NE("", validate(lexxhard::TOF_GRID_HEALTH_ID, lexxhard::TOF_GRID_DATA_ID));
+}
+
+// 0x216 is reserved for the drop-sense frame whose contract does not exist yet; it is
+// registered precisely so that nothing — including a ToF override — can take it.
+TEST(TofCanConfig, RejectsTheReservedDropSenseIdentifier)
+{
+  const int reserved = static_cast<int>(lexxhard::can_ids::TOF_DROP_SENSE_RESERVED);
+  EXPECT_NE("", validate(reserved, 0x2a1));
+  EXPECT_NE("", validate(0x2a0, reserved));
 }
 
 // 0x20F and 0x211 were missed by a hand-written table purely because they are declared in

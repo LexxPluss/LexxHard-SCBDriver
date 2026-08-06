@@ -34,6 +34,14 @@
 
 namespace lexxhard {
 
+// Default identifiers = the assigned allocation (firmware wire contract, version
+// 2026-08-02f; team-authorized self-assignment, see can_ids.hpp for the registered
+// rows). A launch file may override the PAIR for bench use; overriding only one of
+// the two is refused by the caller. These must stay equal to the registered
+// can_ids::TOF_GRID_* values -- a test asserts it.
+inline constexpr int TOF_GRID_DATA_ID{0x214};
+inline constexpr int TOF_GRID_HEALTH_ID{0x215};
+
 struct tof_can_ids {
   uint32_t data_id{0};
   uint32_t health_id{0};

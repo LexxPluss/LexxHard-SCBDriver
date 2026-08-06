@@ -45,8 +45,11 @@ namespace lexxhard {
 namespace can_ids {
 
 enum class direction : uint8_t {
-  rx,  // received from the SCB, so it belongs in the filter and needs a route
-  tx,  // transmitted to the SCB; invisible to the filter, but still taken on the bus
+  rx,        // received from the SCB, so it belongs in the filter and needs a route
+  tx,        // transmitted to the SCB; invisible to the filter, but still taken on the bus
+  reserved,  // allocated on this bus but neither filtered nor routed by default; the
+             // feature that owns it adds it to the filter at runtime, or (drop-sense)
+             // its payload contract does not exist yet and nothing may claim it
 };
 
 enum class owner : uint8_t {
@@ -103,6 +106,15 @@ constexpr uint32_t DFU_TX = 0x20d;
 constexpr uint32_t BOARD_TX = 0x20F;
 constexpr uint32_t GPIO_TX = 0x211;
 
+// ToF grid transport (AMRSW-2322): a team-authorized self-assigned integration
+// allocation, recorded in the firmware wire contract (docs/can, version 2026-08-02f).
+// The data/health pair enters the receive filter only when tof_transport=scb_can
+// enables it at runtime; 0x216 is reserved for the drop-sense frame, whose payload
+// contract does not exist yet, so nothing may claim it.
+constexpr uint32_t TOF_GRID_DATA = 0x214;
+constexpr uint32_t TOF_GRID_HEALTH = 0x215;
+constexpr uint32_t TOF_DROP_SENSE_RESERVED = 0x216;
+
 constexpr entry kTable[]{
     {BMU_0, direction::rx, owner::bmu},
     {BMU_1, direction::rx, owner::bmu},
@@ -133,6 +145,9 @@ constexpr entry kTable[]{
     {DFU_TX, direction::tx, owner::none},
     {BOARD_TX, direction::tx, owner::none},
     {GPIO_TX, direction::tx, owner::none},
+    {TOF_GRID_DATA, direction::reserved, owner::none},
+    {TOF_GRID_HEALTH, direction::reserved, owner::none},
+    {TOF_DROP_SENSE_RESERVED, direction::reserved, owner::none},
 };
 constexpr size_t kTableCount = sizeof(kTable) / sizeof(entry);
 
