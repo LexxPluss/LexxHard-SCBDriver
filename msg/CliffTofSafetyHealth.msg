@@ -140,9 +140,10 @@ uint8 stale_source_mask
 uint8 sample_miss_fault_mask
 
 # Ages measured on the publisher's monotonic clock, in seconds, for observation
-# only. Seconds rather than a duration type so that the ROS 1 and ROS 2
-# definitions stay identical apart from the header line. A negative value means
-# never observed.
+# only: the safety timeout is the consumer's own monotonic clock against a new
+# heartbeat_seq, never these fields. Seconds rather than a duration type because
+# nothing here needs duration arithmetic and a plain double is what a log or a
+# plot wants. A negative value means never observed.
 float64 health_age
 float64[4] measurement_age
 uint16[4] consecutive_missed_cycles
