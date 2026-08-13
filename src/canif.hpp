@@ -52,6 +52,6 @@ public:
   int send(const can_frame& frame) const;
 
 private:
-  queue_type* queue{nullptr};
-  int sock{-1};
+  queue_type* queue{ nullptr };
+  int sock{ -1 };
 };

@@ -73,6 +73,6 @@ public:
 
 private:
   std::array<T, Capacity> buffer;
-  std::atomic<size_t> head{0};
-  std::atomic<size_t> tail{0};
+  std::atomic<size_t> head{ 0 };
+  std::atomic<size_t> tail{ 0 };
 };

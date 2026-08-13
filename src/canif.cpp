@@ -34,8 +34,7 @@
 #include <iostream>
 #include "canif.hpp"
 
-canif::canif(queue_type& q)
-  : queue{&q}
+canif::canif(queue_type& q) : queue{ &q }
 {
 }
 
