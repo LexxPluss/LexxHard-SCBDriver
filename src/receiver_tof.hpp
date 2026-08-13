@@ -69,7 +69,7 @@ private:
   void drain_diagnostics();
   void report_persistent_state(uint32_t now_ms);
 
-  static constexpr int queue_size{10};
+  static constexpr int queue_size{ 10 };
   ros::Publisher pub_tof_front;
   ros::Publisher pub_tof_rear;
   ros::Publisher pub_low_object_left;
@@ -77,5 +77,5 @@ private:
   std::unique_ptr<lexxhard::tof_grid_assembler> assembler;
   // Not ROS_*_THROTTLE: see tof_report_throttle.hpp for why one call site inside a loop
   // over the sources silently starves every source but the first.
-  lexxhard::report_throttle<lexxhard::tof_grid_assembler::SOURCE_COUNT> state_throttle{5000};
+  lexxhard::report_throttle<lexxhard::tof_grid_assembler::SOURCE_COUNT> state_throttle{ 5000 };
 };

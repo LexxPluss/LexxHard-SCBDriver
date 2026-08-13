@@ -38,7 +38,7 @@ public:
 
 private:
   std::vector<uint8_t> buffer;
-  bool escape_next{false};
+  bool escape_next{ false };
 
   static constexpr uint8_t SLIP_END = 0xC0;
   static constexpr uint8_t SLIP_ESC = 0xDB;
