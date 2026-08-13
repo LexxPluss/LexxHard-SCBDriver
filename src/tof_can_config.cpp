@@ -30,9 +30,11 @@
 
 #include "can_ids.hpp"
 
-namespace lexxhard {
+namespace lexxhard
+{
 
-namespace {
+namespace
+{
 
 std::string hex(uint32_t v)
 {
@@ -47,8 +49,8 @@ std::string check_one(const char* name, int raw, uint32_t& out)
   // bits, which live above the 11-bit field and would change what the filter matches
   // without changing how the value reads in a launch file.
   if (raw < 0 || (static_cast<uint32_t>(raw) & ~static_cast<uint32_t>(CAN_SFF_MASK)) != 0)
-    return std::string{name} + " must be an 11-bit identifier in 0x000..0x7ff with no "
-                               "EFF, RTR or ERR flag";
+    return std::string{ name } + " must be an 11-bit identifier in 0x000..0x7ff with no "
+                                 "EFF, RTR or ERR flag";
   out = static_cast<uint32_t>(raw);
   return {};
 }
@@ -81,15 +83,14 @@ std::string validate_tof_can_ids(int data_raw, int health_raw, tof_can_ids& out)
   return {};
 }
 
-std::string check_tof_id_param_pair(bool has_data, bool has_health,
-                                    bool data_parsed, bool health_parsed)
+std::string check_tof_id_param_pair(bool has_data, bool has_health, bool data_parsed, bool health_parsed)
 {
   if (has_data != has_health)
-    return std::string{"tof_can_data_id and tof_can_health_id are a pair: override both "
-                       "or neither ("} +
-           (has_data ? "tof_can_data_id" : "tof_can_health_id") +
-           " is set, the other is not)";
-  if (has_data && (!data_parsed || !health_parsed)) {
+    return std::string{ "tof_can_data_id and tof_can_health_id are a pair: override both "
+                        "or neither (" } +
+           (has_data ? "tof_can_data_id" : "tof_can_health_id") + " is set, the other is not)";
+  if (has_data && (!data_parsed || !health_parsed))
+  {
     std::string which;
     if (!data_parsed && !health_parsed)
       which = "tof_can_data_id and tof_can_health_id";

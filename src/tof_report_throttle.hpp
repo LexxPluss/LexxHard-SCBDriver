@@ -37,12 +37,16 @@
 #include <cstdint>
 #include <optional>
 
-namespace lexxhard {
+namespace lexxhard
+{
 
 template <size_t N>
-class report_throttle {
+class report_throttle
+{
 public:
-  explicit report_throttle(uint32_t interval_ms) : interval_ms_{interval_ms} {}
+  explicit report_throttle(uint32_t interval_ms) : interval_ms_{ interval_ms }
+  {
+  }
 
   // True when this slot is due to report. Each slot keeps its own clock.
   bool should_report(size_t slot, uint32_t now_ms)

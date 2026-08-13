@@ -25,9 +25,11 @@
 
 #include "tof_grid_assembler.hpp"
 
-namespace lexxhard {
+namespace lexxhard
+{
 
-namespace {
+namespace
+{
 
 constexpr uint8_t DLC = 8;
 
@@ -60,23 +62,19 @@ bool tof_grid_assembler::normalised_equal(const health_info& a, const health_inf
   // Comparing the eight raw bytes instead would, as soon as a firmware started populating
   // the reserved fields, read two semantically identical frames as contradicting each
   // other and retire a perfectly good grid. Forward compatibility must not cost data.
-  return a.valid_zone_count == b.valid_zone_count && a.flags == b.flags &&
-         a.chain_position == b.chain_position && a.boards_detected == b.boards_detected &&
-         a.last_error == b.last_error;
+  return a.valid_zone_count == b.valid_zone_count && a.flags == b.flags && a.chain_position == b.chain_position &&
+         a.boards_detected == b.boards_detected && a.last_error == b.last_error;
 }
 
-tof_grid_assembler::tof_grid_assembler(uint32_t data_can_id, uint32_t health_can_id,
-                                       uint32_t startup_time_ms)
-  : data_can_id_{data_can_id},
-    health_can_id_{health_can_id},
-    startup_time_ms_{startup_time_ms}
+tof_grid_assembler::tof_grid_assembler(uint32_t data_can_id, uint32_t health_can_id, uint32_t startup_time_ms)
+  : data_can_id_{ data_can_id }, health_can_id_{ health_can_id }, startup_time_ms_{ startup_time_ms }
 {
 }
 
 void tof_grid_assembler::emit(event e, uint8_t source, source_state state)
 {
   ++counters_[static_cast<size_t>(e)];
-  events_.push_back(diagnostic{e, source, state});
+  events_.push_back(diagnostic{ e, source, state });
 }
 
 void tof_grid_assembler::retire(uint8_t source)
@@ -90,32 +88,33 @@ void tof_grid_assembler::retire(uint8_t source)
 
 void tof_grid_assembler::expire_stale_slots(uint32_t now_ms)
 {
-  for (uint8_t src = 0; src < SOURCE_COUNT; ++src) {
+  for (uint8_t src = 0; src < SOURCE_COUNT; ++src)
+  {
     slot& s = slots_[src];
     if (!s.active || elapsed(s.first_seen_ms, now_ms) <= ASSEMBLY_TIMEOUT_MS)
       continue;
     // An assembly holding only a health frame timed out without its data; that is a
     // different diagnosis from losing chunks, so it gets its own counter.
-    emit(s.bitmap == 0 && s.health_seen ? event::ORPHAN_HEALTH_TIMEOUT
-                                        : event::INCOMPLETE_BY_TIMEOUT, src);
+    emit(s.bitmap == 0 && s.health_seen ? event::ORPHAN_HEALTH_TIMEOUT : event::INCOMPLETE_BY_TIMEOUT, src);
     retire(src);
   }
 }
 
-std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t source,
-                                                                        uint32_t now_ms)
+std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t source, uint32_t now_ms)
 {
   slot& s = slots_[source];
   if (!s.active || s.bitmap != COMPLETE_BITMAP || !s.health_seen)
     return std::nullopt;
 
   uint8_t decoded_valid = 0;
-  for (uint16_t z : s.zones_mm) {
+  for (uint16_t z : s.zones_mm)
+  {
     if (z != INVALID_MM)
       ++decoded_valid;
   }
 
-  if (s.health.valid_zone_count != decoded_valid) {
+  if (s.health.valid_zone_count != decoded_valid)
+  {
     // The packer contradicts its own summary. One of the two is wrong and nothing here
     // identifies which, so the zone data is not trustworthy either. Rejecting keeps the
     // field meaningful; publishing with a warning would leave it with no contract value.
@@ -133,7 +132,8 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t
   tracker& t = trackers_[source];
   t.ever_published = true;
   t.last_publish_ms = now_ms;
-  if (t.alarm_active) {
+  if (t.alarm_active)
+  {
     // Recovery is reported wherever it happens, including the first grid ever seen from
     // a source that had already been alarmed as NEVER_SEEN.
     emit(event::SOURCE_RECOVERED, source, source_state::HEALTHY);
@@ -145,10 +145,8 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t
   return g;
 }
 
-std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can_id,
-                                                                    uint8_t dlc,
-                                                                    const uint8_t* payload,
-                                                                    uint32_t now_ms)
+std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can_id, uint8_t dlc,
+                                                                    const uint8_t* payload, uint32_t now_ms)
 {
   const bool is_data = can_id == data_can_id_;
   const bool is_health = can_id == health_can_id_;
@@ -157,7 +155,8 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
 
   expire_stale_slots(now_ms);
 
-  if (dlc != DLC || payload == nullptr) {
+  if (dlc != DLC || payload == nullptr)
+  {
     emit(event::MALFORMED_HEADER);
     return std::nullopt;
   }
@@ -167,7 +166,8 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
   const uint8_t low_nibble = static_cast<uint8_t>(payload[1] & 0x0F);
 
   // An unknown source cannot be attributed to a tracker at all, so it stops here.
-  if (source >= SOURCE_COUNT) {
+  if (source >= SOURCE_COUNT)
+  {
     emit(event::MALFORMED_HEADER);
     return std::nullopt;
   }
@@ -182,11 +182,13 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
   t.ever_seen_frame = true;
   t.last_frame_ms = now_ms;
 
-  if (is_health) {
+  if (is_health)
+  {
     // Reserved low nibble, and a count that cannot describe a 64-zone grid, are both
     // structural faults. 0xFF is reserved for a future status-only frame and is not
     // defined yet, so it lands here too.
-    if (low_nibble != 0 || payload[2] > ZONES) {
+    if (low_nibble != 0 || payload[2] > ZONES)
+    {
       emit(event::MALFORMED_HEADER, source);
       return std::nullopt;
     }
@@ -196,7 +198,8 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
   // late or retransmitted frame must not restart it. Without this, a timeout would clear
   // the rejection and the very frames that were judged untrustworthy could reassemble and
   // publish.
-  if (t.retired_valid && t.retired_generation == generation) {
+  if (t.retired_valid && t.retired_generation == generation)
+  {
     emit(event::FRAME_FOR_RETIRED_GENERATION, source);
     return std::nullopt;
   }
@@ -204,12 +207,14 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
   // Generation equality, not ordering, is what prevents two grids being spliced. A
   // differing generation never fills a hole in the current slot; it replaces it. Because
   // this is an equality test the 255->0 wrap is an ordinary new grid, not a regression.
-  if (s.active && s.generation != generation) {
+  if (s.active && s.generation != generation)
+  {
     emit(event::INCOMPLETE_BY_GENERATION_CHANGE, source);
     retire(source);
   }
 
-  if (!s.active) {
+  if (!s.active)
+  {
     s = slot{};
     s.active = true;
     s.generation = generation;
@@ -217,10 +222,13 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
     s.zones_mm.fill(INVALID_MM);
   }
 
-  if (is_health) {
+  if (is_health)
+  {
     const health_info incoming = parse_health(payload);
-    if (s.health_seen) {
-      if (normalised_equal(s.health, incoming)) {
+    if (s.health_seen)
+    {
+      if (normalised_equal(s.health, incoming))
+      {
         emit(event::DUPLICATE_HEALTH_IDENTICAL, source);
         return std::nullopt;
       }
@@ -246,15 +254,19 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
   const uint16_t bit = static_cast<uint16_t>(1u << chunk);
   const size_t base = static_cast<size_t>(chunk) * ZONES_PER_CHUNK;
 
-  if (s.bitmap & bit) {
+  if (s.bitmap & bit)
+  {
     bool identical = true;
-    for (size_t j = 0; j < ZONES_PER_CHUNK; ++j) {
-      if (s.zones_mm[base + j] != zones[j]) {
+    for (size_t j = 0; j < ZONES_PER_CHUNK; ++j)
+    {
+      if (s.zones_mm[base + j] != zones[j])
+      {
         identical = false;
         break;
       }
     }
-    if (identical) {
+    if (identical)
+    {
       emit(event::DUPLICATE_CHUNK_IDENTICAL, source);
       return std::nullopt;
     }
@@ -274,8 +286,7 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
   return try_complete(source, now_ms);
 }
 
-tof_grid_assembler::status tof_grid_assembler::source_status(uint8_t source,
-                                                             uint32_t now_ms) const
+tof_grid_assembler::status tof_grid_assembler::source_status(uint8_t source, uint32_t now_ms) const
 {
   status out;
   if (source >= SOURCE_COUNT)
@@ -287,23 +298,23 @@ tof_grid_assembler::status tof_grid_assembler::source_status(uint8_t source,
   out.since_last_frame_ms = t.ever_seen_frame ? elapsed(t.last_frame_ms, now_ms) : 0;
   out.since_last_publish_ms = t.ever_published ? elapsed(t.last_publish_ms, now_ms) : 0;
 
-  if (!t.ever_seen_frame) {
+  if (!t.ever_seen_frame)
+  {
     out.state = source_state::NEVER_SEEN;
     return out;
   }
 
   // A source that has never published is measured from the end of the startup grace, so a
   // sensor that simply takes a moment to warm up is not reported as a fault.
-  const uint32_t reference = t.ever_published ? t.last_publish_ms
-                                              : startup_time_ms_ + STARTUP_GRACE_MS;
-  if (static_cast<int32_t>(now_ms - reference) <= static_cast<int32_t>(SOURCE_STALE_MS)) {
+  const uint32_t reference = t.ever_published ? t.last_publish_ms : startup_time_ms_ + STARTUP_GRACE_MS;
+  if (static_cast<int32_t>(now_ms - reference) <= static_cast<int32_t>(SOURCE_STALE_MS))
+  {
     out.state = source_state::HEALTHY;
     return out;
   }
 
-  out.state = elapsed(t.last_frame_ms, now_ms) <= SOURCE_STALE_MS
-                ? source_state::STALE_NOT_COMPLETING
-                : source_state::STALE_NO_FRAMES;
+  out.state = elapsed(t.last_frame_ms, now_ms) <= SOURCE_STALE_MS ? source_state::STALE_NOT_COMPLETING :
+                                                                    source_state::STALE_NO_FRAMES;
   return out;
 }
 
@@ -311,12 +322,15 @@ void tof_grid_assembler::poll(uint32_t now_ms)
 {
   expire_stale_slots(now_ms);
 
-  for (uint8_t src = 0; src < SOURCE_COUNT; ++src) {
+  for (uint8_t src = 0; src < SOURCE_COUNT; ++src)
+  {
     tracker& t = trackers_[src];
     const source_state state = source_status(src, now_ms).state;
 
-    if (state == source_state::HEALTHY) {
-      if (t.alarm_active) {
+    if (state == source_state::HEALTHY)
+    {
+      if (t.alarm_active)
+      {
         emit(event::SOURCE_RECOVERED, src, state);
         t.alarm_active = false;
       }
@@ -326,10 +340,12 @@ void tof_grid_assembler::poll(uint32_t now_ms)
     if (t.alarm_active)
       continue;
 
-    if (state == source_state::NEVER_SEEN) {
+    if (state == source_state::NEVER_SEEN)
+    {
       // Before the grace expires this is simply a system still starting up, and alarming
       // on it would make the alarm meaningless at every boot.
-      if (elapsed(startup_time_ms_, now_ms) > STARTUP_GRACE_MS) {
+      if (elapsed(startup_time_ms_, now_ms) > STARTUP_GRACE_MS)
+      {
         emit(event::SOURCE_NEVER_SEEN, src, state);
         t.alarm_active = true;
       }

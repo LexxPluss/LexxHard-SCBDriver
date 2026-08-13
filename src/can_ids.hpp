@@ -41,10 +41,13 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace lexxhard {
-namespace can_ids {
+namespace lexxhard
+{
+namespace can_ids
+{
 
-enum class direction : uint8_t {
+enum class direction : uint8_t
+{
   rx,        // received from the SCB, so it belongs in the filter and needs a route
   tx,        // transmitted to the SCB; invisible to the filter, but still taken on the bus
   reserved,  // allocated on this bus but neither filtered nor routed by default; the
@@ -52,7 +55,8 @@ enum class direction : uint8_t {
              // its payload contract does not exist yet and nothing may claim it
 };
 
-enum class owner : uint8_t {
+enum class owner : uint8_t
+{
   none,  // transmit-only rows have no receive route
   bmu,
   pgv,
@@ -66,7 +70,8 @@ enum class owner : uint8_t {
   led,
 };
 
-struct entry {
+struct entry
+{
   uint32_t id;
   direction dir;
   owner who;
@@ -116,38 +121,38 @@ constexpr uint32_t TOF_GRID_HEALTH = 0x215;
 constexpr uint32_t TOF_DROP_SENSE_RESERVED = 0x216;
 
 constexpr entry kTable[]{
-    {BMU_0, direction::rx, owner::bmu},
-    {BMU_1, direction::rx, owner::bmu},
-    {BMU_2, direction::rx, owner::bmu},
-    {BMU_3, direction::rx, owner::bmu},
-    {BMU_4, direction::rx, owner::bmu},
-    {BMU_5, direction::rx, owner::bmu},
-    {BMU_6, direction::rx, owner::bmu},
-    {BMU_7, direction::rx, owner::bmu},
-    {BMU_8, direction::rx, owner::bmu},
-    {PGV_RX_0, direction::rx, owner::pgv},
-    {PGV_RX_1, direction::rx, owner::pgv},
-    {PGV_RX_2, direction::rx, owner::pgv},
-    {USS, direction::rx, owner::uss},
-    {IMU_0, direction::rx, owner::imu},
-    {IMU_1, direction::rx, owner::imu},
-    {ACTUATOR_RX_0, direction::rx, owner::actuator},
-    {ACTUATOR_RX_1, direction::rx, owner::actuator},
-    {ACTUATOR_RX_2, direction::rx, owner::actuator},
-    {BOARD_RX, direction::rx, owner::board},
-    {DFU_RX, direction::rx, owner::dfu},
-    {TUG_ENCODER, direction::rx, owner::tug_encoder},
-    {GPIO_RX, direction::rx, owner::gpio},
-    {PGV_TX, direction::tx, owner::none},
-    {LED_TX, direction::tx, owner::none},
-    {ACTUATOR_TX_0, direction::tx, owner::none},
-    {ACTUATOR_TX_1, direction::tx, owner::none},
-    {DFU_TX, direction::tx, owner::none},
-    {BOARD_TX, direction::tx, owner::none},
-    {GPIO_TX, direction::tx, owner::none},
-    {TOF_GRID_DATA, direction::reserved, owner::none},
-    {TOF_GRID_HEALTH, direction::reserved, owner::none},
-    {TOF_DROP_SENSE_RESERVED, direction::reserved, owner::none},
+  { BMU_0, direction::rx, owner::bmu },
+  { BMU_1, direction::rx, owner::bmu },
+  { BMU_2, direction::rx, owner::bmu },
+  { BMU_3, direction::rx, owner::bmu },
+  { BMU_4, direction::rx, owner::bmu },
+  { BMU_5, direction::rx, owner::bmu },
+  { BMU_6, direction::rx, owner::bmu },
+  { BMU_7, direction::rx, owner::bmu },
+  { BMU_8, direction::rx, owner::bmu },
+  { PGV_RX_0, direction::rx, owner::pgv },
+  { PGV_RX_1, direction::rx, owner::pgv },
+  { PGV_RX_2, direction::rx, owner::pgv },
+  { USS, direction::rx, owner::uss },
+  { IMU_0, direction::rx, owner::imu },
+  { IMU_1, direction::rx, owner::imu },
+  { ACTUATOR_RX_0, direction::rx, owner::actuator },
+  { ACTUATOR_RX_1, direction::rx, owner::actuator },
+  { ACTUATOR_RX_2, direction::rx, owner::actuator },
+  { BOARD_RX, direction::rx, owner::board },
+  { DFU_RX, direction::rx, owner::dfu },
+  { TUG_ENCODER, direction::rx, owner::tug_encoder },
+  { GPIO_RX, direction::rx, owner::gpio },
+  { PGV_TX, direction::tx, owner::none },
+  { LED_TX, direction::tx, owner::none },
+  { ACTUATOR_TX_0, direction::tx, owner::none },
+  { ACTUATOR_TX_1, direction::tx, owner::none },
+  { DFU_TX, direction::tx, owner::none },
+  { BOARD_TX, direction::tx, owner::none },
+  { GPIO_TX, direction::tx, owner::none },
+  { TOF_GRID_DATA, direction::reserved, owner::none },
+  { TOF_GRID_HEALTH, direction::reserved, owner::none },
+  { TOF_DROP_SENSE_RESERVED, direction::reserved, owner::none },
 };
 constexpr size_t kTableCount = sizeof(kTable) / sizeof(entry);
 
@@ -156,7 +161,8 @@ constexpr size_t kTableCount = sizeof(kTable) / sizeof(entry);
 // read the same rows.
 inline owner route(uint32_t id)
 {
-  for (size_t i = 0; i < kTableCount; ++i) {
+  for (size_t i = 0; i < kTableCount; ++i)
+  {
     if (kTable[i].id == id && kTable[i].dir == direction::rx)
       return kTable[i].who;
   }
@@ -165,7 +171,8 @@ inline owner route(uint32_t id)
 
 inline bool is_taken(uint32_t id)
 {
-  for (size_t i = 0; i < kTableCount; ++i) {
+  for (size_t i = 0; i < kTableCount; ++i)
+  {
     if (kTable[i].id == id)
       return true;
   }
