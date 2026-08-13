@@ -35,167 +35,164 @@
 
 namespace
 {
-    constexpr uint8_t PKT_TOF_DATA = 0x01;
-    constexpr uint8_t TOF_PACKET_HEADER_SIZE = 7;
-    constexpr uint8_t MAX_ZONES = 64;
-    constexpr uint8_t MAX_TARGETS_PER_ZONE = 4;
-    // VL53L7CX 8x8 grid constants
-    constexpr uint8_t VL53L7_GRID_SIZE = 64;
-    constexpr uint8_t VL53L7_SENSOR_ID_LEFT = 2;
-    constexpr uint8_t VL53L7_SENSOR_ID_RIGHT = 3;
+constexpr uint8_t PKT_TOF_DATA = 0x01;
+constexpr uint8_t TOF_PACKET_HEADER_SIZE = 7;
+constexpr uint8_t MAX_ZONES = 64;
+constexpr uint8_t MAX_TARGETS_PER_ZONE = 4;
+// VL53L7CX 8x8 grid constants
+constexpr uint8_t VL53L7_GRID_SIZE = 64;
+constexpr uint8_t VL53L7_SENSOR_ID_LEFT = 2;
+constexpr uint8_t VL53L7_SENSOR_ID_RIGHT = 3;
 
-    struct __attribute__((packed)) ToF_ZoneResult {
-        uint8_t num_of_targets;
-        uint32_t distance[MAX_TARGETS_PER_ZONE];
-        uint8_t status[MAX_TARGETS_PER_ZONE];
-    };
-    struct __attribute__((packed)) ToF_Packet {
-        uint8_t type;
-        uint8_t sensor_id;
-        uint32_t timestamp_ms;
-        uint8_t num_of_zones;
-        ToF_ZoneResult zone_results[MAX_ZONES];
-    };
+struct __attribute__((packed)) ToF_ZoneResult
+{
+  uint8_t num_of_targets;
+  uint32_t distance[MAX_TARGETS_PER_ZONE];
+  uint8_t status[MAX_TARGETS_PER_ZONE];
+};
+struct __attribute__((packed)) ToF_Packet
+{
+  uint8_t type;
+  uint8_t sensor_id;
+  uint32_t timestamp_ms;
+  uint8_t num_of_zones;
+  ToF_ZoneResult zone_results[MAX_ZONES];
+};
 
-    uint32_t read_le32(const std::vector<uint8_t>& packet, size_t offset)
+uint32_t read_le32(const std::vector<uint8_t>& packet, size_t offset)
+{
+  return packet[offset] | (packet[offset + 1] << 8) | (packet[offset + 2] << 16) | (packet[offset + 3] << 24);
+}
+
+float conv_from_raw_distance(uint32_t raw_distance)
+{
+  return static_cast<float>(raw_distance) * 0.001f;  // Convert mm to meters
+}
+
+std::optional<ToF_Packet> parse_frame(const std::vector<uint8_t>& frame)
+{
+  if (frame.size() < TOF_PACKET_HEADER_SIZE)
+  {
+    std::cerr << "ToF packet too short: " << frame.size() << " bytes" << std::endl;
+    return std::nullopt;
+  }
+
+  ToF_Packet packet{
+    .type = frame[0],
+    .sensor_id = frame[1],
+    .timestamp_ms = read_le32(frame, 2),
+    .num_of_zones = frame[6],
+  };
+
+  if (packet.num_of_zones > MAX_ZONES)
+  {
+    std::cerr << "ToF num_of_zones exceeds max: " << static_cast<int>(packet.num_of_zones) << std::endl;
+    return std::nullopt;
+  }
+
+  size_t offset = TOF_PACKET_HEADER_SIZE;
+  for (int i = 0; i < packet.num_of_zones; ++i)
+  {
+    if (offset >= frame.size())
     {
-      return packet[offset] | (packet[offset+1] << 8) | (packet[offset+2] << 16) | (packet[offset+3] << 24);
+      std::cerr << "ToF frame truncated at zone " << i << std::endl;
+      return std::nullopt;
+    }
+    packet.zone_results[i].num_of_targets = frame[offset++];
+
+    if (packet.zone_results[i].num_of_targets > MAX_TARGETS_PER_ZONE)
+    {
+      std::cerr << "ToF num_of_targets exceeds max at zone " << i << ": "
+                << static_cast<int>(packet.zone_results[i].num_of_targets) << std::endl;
+      return std::nullopt;
     }
 
-    float conv_from_raw_distance(uint32_t raw_distance)
+    for (int j = 0; j < packet.zone_results[i].num_of_targets; ++j)
     {
-        return static_cast<float>(raw_distance) * 0.001f; // Convert mm to meters
+      // Need 4 bytes for distance + 1 byte for status
+      if (offset + 5 > frame.size())
+      {
+        std::cerr << "ToF frame truncated at zone " << i << " target " << j << std::endl;
+        return std::nullopt;
+      }
+      packet.zone_results[i].distance[j] = read_le32(frame, offset);
+      offset += 4;
+      packet.zone_results[i].status[j] = frame[offset++];
     }
+  }
 
-    std::optional<ToF_Packet> parse_frame(const std::vector<uint8_t>& frame)
+  return packet;
+}
+
+/**
+ * Decode ToF packet into Float32MultiArray.
+ *
+ * VL53L7CX (sensor_id 2/3, 64-zone grid):
+ *   Output is always exactly 64 floats in row-major order.
+ *   Index convention: data[row * 8 + col], row 0..7, col 0..7.
+ *   Per zone: minimum distance (meters) across all targets.
+ *   Zones with no targets are encoded as -1.0.
+ *
+ * VL53L4CX (sensor_id 0/1, single-zone):
+ *   Output is variable-length (typically 1 element).
+ *   -1.0 for zones with no targets, distance(m) per target otherwise.
+ */
+bool decode(std_msgs::Float32MultiArray& msg, ToF_Packet const& packet)
+{
+  if (packet.type != PKT_TOF_DATA)
+  {
+    std::cerr << "Unknown ToF packet type: " << static_cast<int>(packet.type) << std::endl;
+    return false;
+  }
+
+  msg.data.clear();
+
+  const bool is_grid_sensor = (packet.sensor_id == VL53L7_SENSOR_ID_LEFT || packet.sensor_id == VL53L7_SENSOR_ID_RIGHT);
+
+  if (is_grid_sensor)
+  {
+    if (packet.num_of_zones != VL53L7_GRID_SIZE)
     {
-        if (frame.size() < TOF_PACKET_HEADER_SIZE)
-        {
-            std::cerr << "ToF packet too short: " << frame.size() << " bytes" << std::endl;
-            return std::nullopt;
-        }
-
-        ToF_Packet packet{
-            .type = frame[0],
-            .sensor_id = frame[1],
-            .timestamp_ms = read_le32(frame, 2),
-            .num_of_zones = frame[6],
-        };
-
-        if (packet.num_of_zones > MAX_ZONES)
-        {
-            std::cerr << "ToF num_of_zones exceeds max: "
-                      << static_cast<int>(packet.num_of_zones) << std::endl;
-            return std::nullopt;
-        }
-
-        size_t offset = TOF_PACKET_HEADER_SIZE;
-        for (int i = 0; i < packet.num_of_zones; ++i)
-        {
-            if (offset >= frame.size())
-            {
-                std::cerr << "ToF frame truncated at zone " << i << std::endl;
-                return std::nullopt;
-            }
-            packet.zone_results[i].num_of_targets = frame[offset++];
-
-            if (packet.zone_results[i].num_of_targets > MAX_TARGETS_PER_ZONE)
-            {
-                std::cerr << "ToF num_of_targets exceeds max at zone " << i
-                          << ": " << static_cast<int>(packet.zone_results[i].num_of_targets)
-                          << std::endl;
-                return std::nullopt;
-            }
-
-            for (int j = 0; j < packet.zone_results[i].num_of_targets; ++j)
-            {
-                // Need 4 bytes for distance + 1 byte for status
-                if (offset + 5 > frame.size())
-                {
-                    std::cerr << "ToF frame truncated at zone " << i
-                              << " target " << j << std::endl;
-                    return std::nullopt;
-                }
-                packet.zone_results[i].distance[j] = read_le32(frame, offset);
-                offset += 4;
-                packet.zone_results[i].status[j] = frame[offset++];
-            }
-        }
-
-        return packet;
+      std::cerr << "Unexpected VL53L7 zone count: " << static_cast<int>(packet.num_of_zones) << std::endl;
+      return false;
     }
-
-    /**
-     * Decode ToF packet into Float32MultiArray.
-     *
-     * VL53L7CX (sensor_id 2/3, 64-zone grid):
-     *   Output is always exactly 64 floats in row-major order.
-     *   Index convention: data[row * 8 + col], row 0..7, col 0..7.
-     *   Per zone: minimum distance (meters) across all targets.
-     *   Zones with no targets are encoded as -1.0.
-     *
-     * VL53L4CX (sensor_id 0/1, single-zone):
-     *   Output is variable-length (typically 1 element).
-     *   -1.0 for zones with no targets, distance(m) per target otherwise.
-     */
-    bool decode(std_msgs::Float32MultiArray& msg, ToF_Packet const& packet)
+    msg.data.resize(VL53L7_GRID_SIZE, -1.0f);
+    for (uint8_t i = 0; i < packet.num_of_zones && i < VL53L7_GRID_SIZE; ++i)
     {
-        if (packet.type != PKT_TOF_DATA)
+      if (packet.zone_results[i].num_of_targets == 0)
+      {
+        continue;  // already -1.0 from resize
+      }
+      float min_dist = conv_from_raw_distance(packet.zone_results[i].distance[0]);
+      for (uint8_t j = 1; j < packet.zone_results[i].num_of_targets; ++j)
+      {
+        float dist = conv_from_raw_distance(packet.zone_results[i].distance[j]);
+        if (dist < min_dist)
         {
-            std::cerr << "Unknown ToF packet type: " << static_cast<int>(packet.type) << std::endl;
-            return false;
+          min_dist = dist;
         }
-
-        msg.data.clear();
-
-        const bool is_grid_sensor = (packet.sensor_id == VL53L7_SENSOR_ID_LEFT ||
-                                     packet.sensor_id == VL53L7_SENSOR_ID_RIGHT);
-
-        if (is_grid_sensor)
-        {
-            if (packet.num_of_zones != VL53L7_GRID_SIZE)
-            {
-                std::cerr << "Unexpected VL53L7 zone count: "
-                          << static_cast<int>(packet.num_of_zones) << std::endl;
-                return false;
-            }
-            msg.data.resize(VL53L7_GRID_SIZE, -1.0f);
-            for (uint8_t i = 0; i < packet.num_of_zones && i < VL53L7_GRID_SIZE; ++i)
-            {
-                if (packet.zone_results[i].num_of_targets == 0)
-                {
-                    continue; // already -1.0 from resize
-                }
-                float min_dist = conv_from_raw_distance(packet.zone_results[i].distance[0]);
-                for (uint8_t j = 1; j < packet.zone_results[i].num_of_targets; ++j)
-                {
-                    float dist = conv_from_raw_distance(packet.zone_results[i].distance[j]);
-                    if (dist < min_dist)
-                    {
-                        min_dist = dist;
-                    }
-                }
-                msg.data[i] = min_dist;
-            }
-        }
-        else
-        {
-            for (uint8_t i = 0; i < packet.num_of_zones; ++i)
-            {
-                if (packet.zone_results[i].num_of_targets == 0)
-                {
-                    msg.data.push_back(-1.0f);
-                    continue;
-                }
-                for (uint8_t j = 0; j < packet.zone_results[i].num_of_targets; ++j)
-                {
-                    msg.data.push_back(conv_from_raw_distance(packet.zone_results[i].distance[j]));
-                }
-            }
-        }
-
-        return true;
+      }
+      msg.data[i] = min_dist;
     }
+  }
+  else
+  {
+    for (uint8_t i = 0; i < packet.num_of_zones; ++i)
+    {
+      if (packet.zone_results[i].num_of_targets == 0)
+      {
+        msg.data.push_back(-1.0f);
+        continue;
+      }
+      for (uint8_t j = 0; j < packet.zone_results[i].num_of_targets; ++j)
+      {
+        msg.data.push_back(conv_from_raw_distance(packet.zone_results[i].distance[j]));
+      }
+    }
+  }
+
+  return true;
+}
 }  // namespace
 
 receiver_tof::receiver_tof(ros::NodeHandle& n)
@@ -212,60 +209,75 @@ receiver_tof::receiver_tof(ros::NodeHandle& n)
 void receiver_tof::handle(const std::vector<uint8_t>& frame)
 {
   const std::optional<ToF_Packet> packet = parse_frame(frame);
-  if(!packet)
+  if (!packet)
   {
     return;
   }
 
   std_msgs::Float32MultiArray msg;
-  if(!decode(msg, *packet))
+  if (!decode(msg, *packet))
   {
     return;
   }
 
-  if(packet->sensor_id == 0)
+  if (packet->sensor_id == 0)
   {
     pub_tof_front.publish(msg);
   }
-  else if(packet->sensor_id == 1)
+  else if (packet->sensor_id == 1)
   {
     pub_tof_rear.publish(msg);
   }
-  else if(packet->sensor_id == 2)
+  else if (packet->sensor_id == 2)
   {
     pub_low_object_left.publish(msg);
   }
-  else if(packet->sensor_id == 3)
+  else if (packet->sensor_id == 3)
   {
     pub_low_object_right.publish(msg);
   }
   else
   {
-    std::cerr << "Invalid sensor ID in ToF packet: "
-              << static_cast<int>(packet->sensor_id) << std::endl;
+    std::cerr << "Invalid sensor ID in ToF packet: " << static_cast<int>(packet->sensor_id) << std::endl;
   }
 }
 
-namespace {
+namespace
+{
 
 const char* event_text(lexxhard::tof_grid_assembler::event e)
 {
   using ev = lexxhard::tof_grid_assembler::event;
-  switch (e) {
-  case ev::INCOMPLETE_BY_TIMEOUT: return "grid incomplete at the 300 ms timeout";
-  case ev::INCOMPLETE_BY_GENERATION_CHANGE: return "grid abandoned, next generation started";
-  case ev::DUPLICATE_CHUNK_IDENTICAL: return "duplicate chunk (identical, ignored)";
-  case ev::CONFLICTING_CHUNK: return "conflicting chunk, generation retired";
-  case ev::DUPLICATE_HEALTH_IDENTICAL: return "duplicate health frame (identical, ignored)";
-  case ev::CONFLICTING_HEALTH: return "conflicting health frame, generation retired";
-  case ev::MALFORMED_HEADER: return "malformed frame header";
-  case ev::HEALTH_COUNT_MISMATCH: return "health valid_zone_count disagrees with the grid";
-  case ev::ORPHAN_HEALTH_TIMEOUT: return "health frame arrived with no data";
-  case ev::FRAME_FOR_RETIRED_GENERATION: return "frame for an already retired generation";
-  case ev::SOURCE_NEVER_SEEN: return "no ToF frame has EVER arrived from this source";
-  case ev::SOURCE_STALE: return "ToF source has stopped producing usable grids";
-  case ev::SOURCE_RECOVERED: return "ToF source recovered";
-  default: return nullptr;
+  switch (e)
+  {
+    case ev::INCOMPLETE_BY_TIMEOUT:
+      return "grid incomplete at the 300 ms timeout";
+    case ev::INCOMPLETE_BY_GENERATION_CHANGE:
+      return "grid abandoned, next generation started";
+    case ev::DUPLICATE_CHUNK_IDENTICAL:
+      return "duplicate chunk (identical, ignored)";
+    case ev::CONFLICTING_CHUNK:
+      return "conflicting chunk, generation retired";
+    case ev::DUPLICATE_HEALTH_IDENTICAL:
+      return "duplicate health frame (identical, ignored)";
+    case ev::CONFLICTING_HEALTH:
+      return "conflicting health frame, generation retired";
+    case ev::MALFORMED_HEADER:
+      return "malformed frame header";
+    case ev::HEALTH_COUNT_MISMATCH:
+      return "health valid_zone_count disagrees with the grid";
+    case ev::ORPHAN_HEALTH_TIMEOUT:
+      return "health frame arrived with no data";
+    case ev::FRAME_FOR_RETIRED_GENERATION:
+      return "frame for an already retired generation";
+    case ev::SOURCE_NEVER_SEEN:
+      return "no ToF frame has EVER arrived from this source";
+    case ev::SOURCE_STALE:
+      return "ToF source has stopped producing usable grids";
+    case ev::SOURCE_RECOVERED:
+      return "ToF source recovered";
+    default:
+      return nullptr;
   }
 }
 
@@ -362,8 +374,7 @@ void receiver_tof::report_persistent_state(uint32_t now_ms)
     }
     if (!state_throttle.should_report(src, now_ms))
       continue;
-    ROS_ERROR("ToF %s: still %s (%u ms since last frame, %u ms since last grid)",
-              asm_t::source_name(src), asm_t::state_name(st.state),
-              st.since_last_frame_ms, st.ever_published ? st.since_last_publish_ms : 0u);
+    ROS_ERROR("ToF %s: still %s (%u ms since last frame, %u ms since last grid)", asm_t::source_name(src),
+              asm_t::state_name(st.state), st.since_last_frame_ms, st.ever_published ? st.since_last_publish_ms : 0u);
   }
 }

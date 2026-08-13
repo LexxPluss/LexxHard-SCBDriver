@@ -66,9 +66,7 @@ bool slip_decoder::decode_byte(uint8_t byte, std::vector<uint8_t>& packet)
     else
     {
       // Invalid escape sequence - clear buffer to resync
-      std::cerr << "SLIP: Invalid escape sequence (0x"
-                << std::hex << static_cast<int>(byte) << std::dec
-                << "), resync"
+      std::cerr << "SLIP: Invalid escape sequence (0x" << std::hex << static_cast<int>(byte) << std::dec << "), resync"
                 << std::endl;
       buffer.clear();
     }

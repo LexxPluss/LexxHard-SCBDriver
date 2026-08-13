@@ -52,8 +52,16 @@ class handler
 {
 public:
   handler(ros::NodeHandle& n, ros::NodeHandle& pn)
-    : actuator{n, pn}, bmu{n}, board{n}, dfu{n}, imu{n}, pgv{n}, uss{n},
-      gpio{n}, tug_encoder{n}, tof{n}
+    : actuator{ n, pn }
+    , bmu{ n }
+    , board{ n }
+    , dfu{ n }
+    , imu{ n }
+    , pgv{ n }
+    , uss{ n }
+    , gpio{ n }
+    , tug_encoder{ n }
+    , tof{ n }
   {
   }
 
@@ -64,7 +72,10 @@ public:
     tof.configure_can(data_id, health_id, now_ms);
   }
 
-  void poll_tof(uint32_t now_ms) { tof.poll(now_ms); }
+  void poll_tof(uint32_t now_ms)
+  {
+    tof.poll(now_ms);
+  }
 
   void handle_can(const can_frame& frame, uint32_t now_ms)
   {
@@ -78,15 +89,33 @@ public:
     switch (lexxhard::can_ids::route(frame.can_id))
     {
       using owner = lexxhard::can_ids::owner;
-      case owner::bmu:         bmu.handle(frame); break;
-      case owner::pgv:         pgv.handle(frame); break;
-      case owner::uss:         uss.handle(frame); break;
-      case owner::imu:         imu.handle(frame); break;
-      case owner::actuator:    actuator.handle(frame); break;
-      case owner::board:       board.handle(frame); break;
-      case owner::dfu:         dfu.handle(frame); break;
-      case owner::tug_encoder: tug_encoder.handle(frame); break;
-      case owner::gpio:        gpio.handle(frame); break;
+      case owner::bmu:
+        bmu.handle(frame);
+        break;
+      case owner::pgv:
+        pgv.handle(frame);
+        break;
+      case owner::uss:
+        uss.handle(frame);
+        break;
+      case owner::imu:
+        imu.handle(frame);
+        break;
+      case owner::actuator:
+        actuator.handle(frame);
+        break;
+      case owner::board:
+        board.handle(frame);
+        break;
+      case owner::dfu:
+        dfu.handle(frame);
+        break;
+      case owner::tug_encoder:
+        tug_encoder.handle(frame);
+        break;
+      case owner::gpio:
+        gpio.handle(frame);
+        break;
       default:
         break;
     }
@@ -115,8 +144,7 @@ private:
 uint32_t monotonic_ms()
 {
   using namespace std::chrono;
-  return static_cast<uint32_t>(
-      duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+  return static_cast<uint32_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
 tof_transport resolve_tof_transport(ros::NodeHandle& pn)
@@ -150,7 +178,8 @@ tof_transport resolve_tof_transport(ros::NodeHandle& pn)
   if (legacy_flag_present && legacy_flag != (resolved == tof_transport::legacy_uart))
   {
     ROS_FATAL("tof_transport='%s' contradicts use_tof_sensor_board=%s; remove the "
-              "deprecated parameter", mode.c_str(), legacy_flag ? "true" : "false");
+              "deprecated parameter",
+              mode.c_str(), legacy_flag ? "true" : "false");
     std::exit(1);
   }
   return resolved;
@@ -179,8 +208,7 @@ bool read_tof_can_ids(ros::NodeHandle& pn, uint32_t& data_id, uint32_t& health_i
     health_parsed = pn.getParam("tof_can_health_id", health_raw);
   }
 
-  if (std::string const reason =
-          lexxhard::check_tof_id_param_pair(has_data, has_health, data_parsed, health_parsed);
+  if (std::string const reason = lexxhard::check_tof_id_param_pair(has_data, has_health, data_parsed, health_parsed);
       !reason.empty())
   {
     ROS_FATAL("%s", reason.c_str());
@@ -213,19 +241,19 @@ int main(int argc, char* argv[])
   tof_transport const transport = resolve_tof_transport(pn);
   bool const use_tof_sensor_board = transport == tof_transport::legacy_uart;
 
-  handler handler{n, pn};
+  handler handler{ n, pn };
 
   // CAN setup. Note the interface name: the SCB calls this bus CAN2 at 1 Mbit/s, but on
   // the IPC it is can1. The two ends name the same physical bus differently.
   canif::queue_type can_queue;
-  canif can{can_queue};
+  canif can{ can_queue };
   std::vector<can_filter> filter;
   filter.reserve(lexxhard::can_ids::kTableCount + 2);
   for (size_t i = 0; i < lexxhard::can_ids::kTableCount; ++i)
   {
     const auto& e = lexxhard::can_ids::kTable[i];
     if (e.dir == lexxhard::can_ids::direction::rx)
-      filter.push_back({e.id, CAN_SFF_MASK});
+      filter.push_back({ e.id, CAN_SFF_MASK });
   }
 
   if (transport == tof_transport::scb_can)
@@ -238,15 +266,14 @@ int main(int argc, char* argv[])
       // possible outcome for an obstacle sensor.
       return 1;
     }
-    filter.push_back({data_id, CAN_SFF_MASK});
-    filter.push_back({health_id, CAN_SFF_MASK});
+    filter.push_back({ data_id, CAN_SFF_MASK });
+    filter.push_back({ health_id, CAN_SFF_MASK });
     handler.enable_tof_can(data_id, health_id, monotonic_ms());
     ROS_INFO("ToF transport: scb_can, data id 0x%03x, health id 0x%03x", data_id, health_id);
   }
   else
   {
-    ROS_INFO("ToF transport: %s",
-             transport == tof_transport::legacy_uart ? "legacy_uart" : "disabled");
+    ROS_INFO("ToF transport: %s", transport == tof_transport::legacy_uart ? "legacy_uart" : "disabled");
   }
 
   if (can.init("can1", filter.data(), filter.size() * sizeof(can_filter)) < 0)
@@ -256,7 +283,7 @@ int main(int argc, char* argv[])
 
   // UART setup
   uartif::queue_type uart_queue;
-  uartif uart{tof_uart_port, tof_baudrate, uart_queue};
+  uartif uart{ tof_uart_port, tof_baudrate, uart_queue };
   if (use_tof_sensor_board)
   {
     if (uart.init() < 0)
@@ -269,19 +296,19 @@ int main(int argc, char* argv[])
   constexpr uint32_t tof_poll_interval_ms = 100;
 
   // Start I/O threads
-  std::atomic<bool> running{true};
-  std::thread can_thread{[&] {
+  std::atomic<bool> running{ true };
+  std::thread can_thread{ [&] {
     while (running.load(std::memory_order_relaxed))
     {
       can.poll(1);
     }
-  }};
-  std::thread uart_thread{[&] {
+  } };
+  std::thread uart_thread{ [&] {
     while (running.load(std::memory_order_relaxed))
     {
       uart.poll(1);
     }
-  }};
+  } };
 
   // Main loop
   while (ros::ok())

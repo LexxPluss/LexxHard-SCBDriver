@@ -53,13 +53,27 @@ int configure_tty(int fd, uint32_t baudrate)
   speed_t speed;
   switch (baudrate)
   {
-    case 9600:   speed = B9600;   break;
-    case 19200:  speed = B19200;  break;
-    case 38400:  speed = B38400;  break;
-    case 57600:  speed = B57600;  break;
-    case 115200: speed = B115200; break;
-    case 230400: speed = B230400; break;
-    case 460800: speed = B460800; break;
+    case 9600:
+      speed = B9600;
+      break;
+    case 19200:
+      speed = B19200;
+      break;
+    case 38400:
+      speed = B38400;
+      break;
+    case 57600:
+      speed = B57600;
+      break;
+    case 115200:
+      speed = B115200;
+      break;
+    case 230400:
+      speed = B230400;
+      break;
+    case 460800:
+      speed = B460800;
+      break;
     default:
       std::cerr << "Unsupported baudrate: " << baudrate << std::endl;
       return -1;
@@ -92,8 +106,7 @@ int configure_tty(int fd, uint32_t baudrate)
 
 }  // namespace
 
-devif::devif(queue_type& queue)
-  : queue{&queue}
+devif::devif(queue_type& queue) : queue{ &queue }
 {
 }
 
@@ -140,14 +153,14 @@ int devif::add_can(const std::string& ifname, const can_filter* filter, size_t n
     return -1;
   }
 
-  if (unsigned long nonblock{1}; ioctl(sock, FIONBIO, &nonblock) < 0)
+  if (unsigned long nonblock{ 1 }; ioctl(sock, FIONBIO, &nonblock) < 0)
   {
     std::cerr << "ioctl(FIONBIO) failed" << std::endl;
     close(sock);
     return -1;
   }
 
-  can_devices.push_back({sock});
+  can_devices.push_back({ sock });
   return 0;
 }
 
@@ -166,7 +179,7 @@ int devif::add_uart(const std::string& device, uint32_t baudrate)
     return -1;
   }
 
-  uart_devices.push_back({fd, {}});
+  uart_devices.push_back({ fd, {} });
   return 0;
 }
 
@@ -195,7 +208,7 @@ void devif::term()
 
 int devif::poll(int timeout_ms)
 {
-  if(!queue)
+  if (!queue)
   {
     return 0;
   }
@@ -205,11 +218,11 @@ int devif::poll(int timeout_ms)
 
   for (const auto& dev : can_devices)
   {
-    fds.push_back({dev.fd, POLLIN, 0});
+    fds.push_back({ dev.fd, POLLIN, 0 });
   }
   for (const auto& dev : uart_devices)
   {
-    fds.push_back({dev.fd, POLLIN, 0});
+    fds.push_back({ dev.fd, POLLIN, 0 });
   }
 
   if (fds.empty())
@@ -270,7 +283,7 @@ int devif::read_can(can_device& dev)
       return -1;
     }
 
-    if (!queue->push(can_message{frame}))
+    if (!queue->push(can_message{ frame }))
     {
       std::cerr << "CAN queue full, dropping frame" << std::endl;
     }
@@ -314,10 +327,10 @@ int devif::read_uart(uart_device& dev)
         packet.pop_back();
         if (slip_decoder::verify_parity(packet, parity))
         {
-          if (!queue->push(uart_message{std::move(packet)}))
-	  {
+          if (!queue->push(uart_message{ std::move(packet) }))
+          {
             std::cerr << "UART queue full, dropping packet" << std::endl;
-	  }
+          }
         }
         else
         {
