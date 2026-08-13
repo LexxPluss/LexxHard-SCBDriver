@@ -69,19 +69,19 @@ public:
 private:
   struct can_device
   {
-    int fd{-1};
+    int fd{ -1 };
   };
 
   struct uart_device
   {
-    int fd{-1};
+    int fd{ -1 };
     slip_decoder decoder;
   };
 
   int read_can(can_device& dev);
   int read_uart(uart_device& dev);
 
-  queue_type* queue{nullptr};
+  queue_type* queue{ nullptr };
   std::vector<can_device> can_devices;
   std::vector<uart_device> uart_devices;
 };

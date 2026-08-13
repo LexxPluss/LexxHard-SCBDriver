@@ -49,13 +49,27 @@ int configure_tty(int fd, int baudrate)
   speed_t speed = B115200;
   switch (baudrate)
   {
-    case 9600: speed = B9600; break;
-    case 19200: speed = B19200; break;
-    case 38400: speed = B38400; break;
-    case 57600: speed = B57600; break;
-    case 115200: speed = B115200; break;
-    case 230400: speed = B230400; break;
-    case 460800: speed = B460800; break;
+    case 9600:
+      speed = B9600;
+      break;
+    case 19200:
+      speed = B19200;
+      break;
+    case 38400:
+      speed = B38400;
+      break;
+    case 57600:
+      speed = B57600;
+      break;
+    case 115200:
+      speed = B115200;
+      break;
+    case 230400:
+      speed = B230400;
+      break;
+    case 460800:
+      speed = B460800;
+      break;
     default:
       std::cerr << "Unsupported baudrate: " << baudrate << std::endl;
       return -1;
@@ -64,8 +78,8 @@ int configure_tty(int fd, int baudrate)
   cfsetispeed(&tty, speed);
 
   // Configure 8N1
-  tty.c_cflag &= ~PARENB;         // No parity
-  tty.c_cflag &= ~CSTOPB;         // 1 stop bit
+  tty.c_cflag &= ~PARENB;  // No parity
+  tty.c_cflag &= ~CSTOPB;  // 1 stop bit
   tty.c_cflag &= ~CSIZE;
   tty.c_cflag |= CS8;             // 8 data bits
   tty.c_cflag &= ~CRTSCTS;        // No hardware flow control
@@ -93,9 +107,9 @@ int configure_tty(int fd, int baudrate)
 
 bool has_data(int fd, int timeout_ms)
 {
-  pollfd fds{.fd{fd}, .events{POLLIN}};
-  
-  if (auto ret{::poll(&fds, 1, timeout_ms)}; ret < 0)
+  pollfd fds{ .fd{ fd }, .events{ POLLIN } };
+
+  if (auto ret{ ::poll(&fds, 1, timeout_ms) }; ret < 0)
   {
     if (errno != EINTR)
     {
@@ -108,22 +122,18 @@ bool has_data(int fd, int timeout_ms)
     // Timeout - no data available
     return false;
   }
-  
+
   return true;
 }
 
 }  // namespace
 
-uartif::uartif(const std::string& device, uint32_t baudrate)
-  : device{device}
-  , baudrate{baudrate}
+uartif::uartif(const std::string& device, uint32_t baudrate) : device{ device }, baudrate{ baudrate }
 {
 }
 
 uartif::uartif(const std::string& device, uint32_t baudrate, queue_type& q)
-  : device{device}
-  , baudrate{baudrate}
-  , queue{&q}
+  : device{ device }, baudrate{ baudrate }, queue{ &q }
 {
 }
 
@@ -148,7 +158,7 @@ int uartif::init()
   }
 
   decoder.reset();
-  
+
   return 0;
 }
 
@@ -169,7 +179,7 @@ int uartif::poll(int timeout_ms) const
   {
     return 0;
   }
-  
+
   if (!has_data(fd, timeout_ms))
   {
     return 0;
@@ -210,9 +220,9 @@ int uartif::poll(int timeout_ms) const
         if (slip_decoder::verify_parity(packet, parity))
         {
           if (!queue->push(std::move(packet)))
-	  {
+          {
             std::cerr << "UART queue full, dropping packet" << std::endl;
-	  }
+          }
         }
         else
         {

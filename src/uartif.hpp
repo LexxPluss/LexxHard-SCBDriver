@@ -51,7 +51,7 @@ public:
 private:
   const std::string device;
   const uint32_t baudrate;
-  int fd{-1};
-  queue_type* queue{nullptr};
+  int fd{ -1 };
+  queue_type* queue{ nullptr };
   mutable slip_decoder decoder;
 };
