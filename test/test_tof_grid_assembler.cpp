@@ -42,7 +42,8 @@
 using lexxhard::tof_grid_assembler;
 using tof_contract::FrameKind;
 
-namespace {
+namespace
+{
 
 // Deliberately NOT the assigned identifiers (0x214/0x215): nothing in the assembler or
 // the vectors may depend on the numbers themselves, and arbitrary values prove it.
@@ -51,40 +52,61 @@ constexpr uint32_t HEALTH_ID = 0x2A1;
 
 const char* event_name(tof_grid_assembler::event e)
 {
-  switch (e) {
-  case tof_grid_assembler::event::GRID_PUBLISHED: return "GRID_PUBLISHED";
-  case tof_grid_assembler::event::INCOMPLETE_BY_TIMEOUT: return "INCOMPLETE_BY_TIMEOUT";
-  case tof_grid_assembler::event::INCOMPLETE_BY_GENERATION_CHANGE:
-    return "INCOMPLETE_BY_GENERATION_CHANGE";
-  case tof_grid_assembler::event::DUPLICATE_CHUNK_IDENTICAL: return "DUPLICATE_CHUNK_IDENTICAL";
-  case tof_grid_assembler::event::CONFLICTING_CHUNK: return "CONFLICTING_CHUNK";
-  case tof_grid_assembler::event::DUPLICATE_HEALTH_IDENTICAL: return "DUPLICATE_HEALTH_IDENTICAL";
-  case tof_grid_assembler::event::CONFLICTING_HEALTH: return "CONFLICTING_HEALTH";
-  case tof_grid_assembler::event::FRAME_FOR_RETIRED_GENERATION:
-    return "FRAME_FOR_RETIRED_GENERATION";
-  case tof_grid_assembler::event::MALFORMED_HEADER: return "MALFORMED_HEADER";
-  case tof_grid_assembler::event::HEALTH_COUNT_MISMATCH: return "HEALTH_COUNT_MISMATCH";
-  case tof_grid_assembler::event::ORPHAN_HEALTH_TIMEOUT: return "ORPHAN_HEALTH_TIMEOUT";
-  case tof_grid_assembler::event::SOURCE_NEVER_SEEN: return "SOURCE_NEVER_SEEN";
-  case tof_grid_assembler::event::SOURCE_STALE: return "SOURCE_STALE";
-  case tof_grid_assembler::event::SOURCE_RECOVERED: return "SOURCE_RECOVERED";
-  default: return "?";
+  switch (e)
+  {
+    case tof_grid_assembler::event::GRID_PUBLISHED:
+      return "GRID_PUBLISHED";
+    case tof_grid_assembler::event::INCOMPLETE_BY_TIMEOUT:
+      return "INCOMPLETE_BY_TIMEOUT";
+    case tof_grid_assembler::event::INCOMPLETE_BY_GENERATION_CHANGE:
+      return "INCOMPLETE_BY_GENERATION_CHANGE";
+    case tof_grid_assembler::event::DUPLICATE_CHUNK_IDENTICAL:
+      return "DUPLICATE_CHUNK_IDENTICAL";
+    case tof_grid_assembler::event::CONFLICTING_CHUNK:
+      return "CONFLICTING_CHUNK";
+    case tof_grid_assembler::event::DUPLICATE_HEALTH_IDENTICAL:
+      return "DUPLICATE_HEALTH_IDENTICAL";
+    case tof_grid_assembler::event::CONFLICTING_HEALTH:
+      return "CONFLICTING_HEALTH";
+    case tof_grid_assembler::event::FRAME_FOR_RETIRED_GENERATION:
+      return "FRAME_FOR_RETIRED_GENERATION";
+    case tof_grid_assembler::event::MALFORMED_HEADER:
+      return "MALFORMED_HEADER";
+    case tof_grid_assembler::event::HEALTH_COUNT_MISMATCH:
+      return "HEALTH_COUNT_MISMATCH";
+    case tof_grid_assembler::event::ORPHAN_HEALTH_TIMEOUT:
+      return "ORPHAN_HEALTH_TIMEOUT";
+    case tof_grid_assembler::event::SOURCE_NEVER_SEEN:
+      return "SOURCE_NEVER_SEEN";
+    case tof_grid_assembler::event::SOURCE_STALE:
+      return "SOURCE_STALE";
+    case tof_grid_assembler::event::SOURCE_RECOVERED:
+      return "SOURCE_RECOVERED";
+    default:
+      return "?";
   }
 }
 
 const char* state_name(tof_grid_assembler::source_state s)
 {
-  switch (s) {
-  case tof_grid_assembler::source_state::NEVER_SEEN: return "NEVER_SEEN";
-  case tof_grid_assembler::source_state::HEALTHY: return "HEALTHY";
-  case tof_grid_assembler::source_state::STALE_NOT_COMPLETING: return "STALE_NOT_COMPLETING";
-  case tof_grid_assembler::source_state::STALE_NO_FRAMES: return "STALE_NO_FRAMES";
-  default: return "?";
+  switch (s)
+  {
+    case tof_grid_assembler::source_state::NEVER_SEEN:
+      return "NEVER_SEEN";
+    case tof_grid_assembler::source_state::HEALTHY:
+      return "HEALTHY";
+    case tof_grid_assembler::source_state::STALE_NOT_COMPLETING:
+      return "STALE_NOT_COMPLETING";
+    case tof_grid_assembler::source_state::STALE_NO_FRAMES:
+      return "STALE_NO_FRAMES";
+    default:
+      return "?";
   }
 }
 
-struct replay_result {
-  uint32_t publish_count{0};
+struct replay_result
+{
+  uint32_t publish_count{ 0 };
   std::vector<tof_grid_assembler::grid> grids;
   std::map<std::string, uint32_t> events;
 };
@@ -92,13 +114,18 @@ struct replay_result {
 replay_result replay(const tof_contract::Scenario& sc, tof_grid_assembler& asm_)
 {
   replay_result r;
-  for (size_t i = 0; i < sc.frame_count; ++i) {
+  for (size_t i = 0; i < sc.frame_count; ++i)
+  {
     const tof_contract::Frame& f = sc.frames[i];
-    if (f.kind == FrameKind::kPoll) {
+    if (f.kind == FrameKind::kPoll)
+    {
       asm_.poll(f.t_ms);
-    } else {
+    }
+    else
+    {
       const uint32_t id = f.kind == FrameKind::kData ? DATA_ID : HEALTH_ID;
-      if (auto g = asm_.consume(id, 8, f.bytes, f.t_ms)) {
+      if (auto g = asm_.consume(id, 8, f.bytes, f.t_ms))
+      {
         ++r.publish_count;
         r.grids.push_back(*g);
       }
@@ -125,8 +152,7 @@ std::string describe(const std::map<std::string, uint32_t>& m)
 // firmware packer is built against. Bumping this is a deliberate act, not a side effect.
 TEST(TofContract, PinnedContractVersion)
 {
-  EXPECT_STREQ("8a3590d30f1fa334b68a579e3f20a12620afe82bf81328cec9312b662ea1ad1f",
-               tof_contract::kContractSha256);
+  EXPECT_STREQ("8a3590d30f1fa334b68a579e3f20a12620afe82bf81328cec9312b662ea1ad1f", tof_contract::kContractSha256);
   EXPECT_STREQ("2026-08-02f", tof_contract::kContractVersion);
 }
 
@@ -146,13 +172,15 @@ TEST(TofContract, ConstantsMatchImplementation)
 // the grid the reference packer started from.
 TEST(TofGridVectors, DecodeToTheStatedGrid)
 {
-  for (size_t i = 0; i < tof_contract::kGridVectorCount; ++i) {
+  for (size_t i = 0; i < tof_contract::kGridVectorCount; ++i)
+  {
     const auto& gv = tof_contract::kGridVectors[i];
     SCOPED_TRACE(gv.name);
 
     tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
     std::optional<tof_grid_assembler::grid> got;
-    for (size_t k = 0; k < tof_grid_assembler::CHUNKS; ++k) {
+    for (size_t k = 0; k < tof_grid_assembler::CHUNKS; ++k)
+    {
       auto g = a.consume(DATA_ID, 8, gv.data_frames[k].bytes, 0);
       EXPECT_FALSE(g.has_value()) << "published before health at chunk " << k;
     }
@@ -171,7 +199,8 @@ TEST(TofGridVectors, DecodeToTheStatedGrid)
 // different identifier and the two arbitrate independently.
 TEST(TofGridVectors, HealthFirstDecodesIdentically)
 {
-  for (size_t i = 0; i < tof_contract::kGridVectorCount; ++i) {
+  for (size_t i = 0; i < tof_contract::kGridVectorCount; ++i)
+  {
     const auto& gv = tof_contract::kGridVectors[i];
     SCOPED_TRACE(gv.name);
 
@@ -189,18 +218,19 @@ TEST(TofGridVectors, HealthFirstDecodesIdentically)
 
 TEST(TofGridScenarios, MatchTheContract)
 {
-  for (size_t i = 0; i < tof_contract::kScenarioCount; ++i) {
+  for (size_t i = 0; i < tof_contract::kScenarioCount; ++i)
+  {
     const auto& sc = tof_contract::kScenarios[i];
     SCOPED_TRACE(std::string(sc.name) + ": " + sc.description);
 
     tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
     const replay_result r = replay(sc, a);
 
-    EXPECT_EQ(sc.publishes, r.publish_count > 0)
-        << "publish_count=" << r.publish_count;
+    EXPECT_EQ(sc.publishes, r.publish_count > 0) << "publish_count=" << r.publish_count;
     EXPECT_EQ(sc.expected_publish_count, r.publish_count);
 
-    if (sc.expected_zones_mm != nullptr) {
+    if (sc.expected_zones_mm != nullptr)
+    {
       ASSERT_FALSE(r.grids.empty());
       for (size_t z = 0; z < tof_grid_assembler::ZONES; ++z)
         EXPECT_EQ(sc.expected_zones_mm[z], r.grids.front().zones_mm[z]) << "zone " << z;
@@ -211,17 +241,16 @@ TEST(TofGridScenarios, MatchTheContract)
     std::map<std::string, uint32_t> want;
     for (size_t e = 0; e < sc.expected_event_count; ++e)
       want[sc.expected_events[e].name] = sc.expected_events[e].count;
-    EXPECT_EQ(want, r.events) << "expected [" << describe(want) << "] got ["
-                              << describe(r.events) << "]";
+    EXPECT_EQ(want, r.events) << "expected [" << describe(want) << "] got [" << describe(r.events) << "]";
 
     const uint32_t end = sc.frames[sc.frame_count - 1].t_ms;
-    if (sc.expected_state_src0 != nullptr) {
-      EXPECT_STREQ(sc.expected_state_src0,
-                   state_name(a.source_status(0, end).state));
+    if (sc.expected_state_src0 != nullptr)
+    {
+      EXPECT_STREQ(sc.expected_state_src0, state_name(a.source_status(0, end).state));
     }
-    if (sc.expected_state_src1 != nullptr) {
-      EXPECT_STREQ(sc.expected_state_src1,
-                   state_name(a.source_status(1, end).state));
+    if (sc.expected_state_src1 != nullptr)
+    {
+      EXPECT_STREQ(sc.expected_state_src1, state_name(a.source_status(1, end).state));
     }
   }
 }
@@ -231,7 +260,7 @@ TEST(TofGridScenarios, MatchTheContract)
 TEST(TofGridAssembler, IgnoresUnrelatedCanIds)
 {
   tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
-  const uint8_t payload[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  const uint8_t payload[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
   EXPECT_FALSE(a.consume(0x100, 8, payload, 0).has_value());
   EXPECT_EQ(0u, a.count(tof_grid_assembler::event::MALFORMED_HEADER));
 }
@@ -239,7 +268,7 @@ TEST(TofGridAssembler, IgnoresUnrelatedCanIds)
 TEST(TofGridAssembler, RejectsWrongDlc)
 {
   tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
-  const uint8_t payload[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  const uint8_t payload[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
   EXPECT_FALSE(a.consume(DATA_ID, 7, payload, 0).has_value());
   EXPECT_EQ(1u, a.count(tof_grid_assembler::event::MALFORMED_HEADER));
 }
@@ -248,7 +277,7 @@ TEST(TofGridAssembler, RejectsWrongDlc)
 TEST(TofGridAssembler, DrainEmptiesTheEventQueue)
 {
   tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
-  const uint8_t bad[8] = {0, 0x90, 0, 0, 0, 0, 0, 0};  // source_id 9
+  const uint8_t bad[8] = { 0, 0x90, 0, 0, 0, 0, 0, 0 };  // source_id 9
   EXPECT_FALSE(a.consume(DATA_ID, 8, bad, 0).has_value());
 
   EXPECT_EQ(1u, a.drain_events().size());
@@ -257,7 +286,8 @@ TEST(TofGridAssembler, DrainEmptiesTheEventQueue)
   EXPECT_EQ(1u, a.count(tof_grid_assembler::event::MALFORMED_HEADER));
 }
 
-namespace {
+namespace
+{
 
 // Feeds one complete grid for source 0 and returns whatever consume() emitted, with no
 // poll in between.
@@ -320,11 +350,12 @@ TEST(TofGridAssembler, WatchdogDiagnosticsNameTheSourceAndTheState)
   using asm_t = tof_grid_assembler;
 
   tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
-  feed_grid(a, 0);            // source 0 publishes once, source 1 never appears
-  a.poll(1500);               // source 0 goes stale with no frames since t=0
+  feed_grid(a, 0);  // source 0 publishes once, source 1 never appears
+  a.poll(1500);     // source 0 goes stale with no frames since t=0
 
   bool saw_stale = false;
-  for (const auto& d : a.drain_events()) {
+  for (const auto& d : a.drain_events())
+  {
     if (d.kind != asm_t::event::SOURCE_STALE)
       continue;
     saw_stale = true;
@@ -343,8 +374,10 @@ TEST(TofGridAssembler, StaleNotCompletingIsDistinguishedFromStaleNoFrames)
 
   tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
   // Frames keep arriving but a chunk is always missing, so nothing ever completes.
-  for (uint32_t t : {0u, 2000u, 4000u}) {
-    for (size_t k = 0; k < asm_t::CHUNKS; ++k) {
+  for (uint32_t t : { 0u, 2000u, 4000u })
+  {
+    for (size_t k = 0; k < asm_t::CHUNKS; ++k)
+    {
       if (k != 5)
         a.consume(DATA_ID, 8, gv.data_frames[k].bytes, t);
     }
@@ -353,7 +386,8 @@ TEST(TofGridAssembler, StaleNotCompletingIsDistinguishedFromStaleNoFrames)
   a.poll(4100);
 
   bool saw_stale = false;
-  for (const auto& d : a.drain_events()) {
+  for (const auto& d : a.drain_events())
+  {
     if (d.kind != asm_t::event::SOURCE_STALE || d.source != asm_t::SOURCE_FRONT_RIGHT)
       continue;
     saw_stale = true;
@@ -362,7 +396,8 @@ TEST(TofGridAssembler, StaleNotCompletingIsDistinguishedFromStaleNoFrames)
   EXPECT_TRUE(saw_stale);
 }
 
-namespace {
+namespace
+{
 
 std::string validate(int data, int health)
 {
@@ -387,16 +422,22 @@ TEST(TofCanConfig, AcceptsAFreeIdentifierPair)
 TEST(TofCanConfig, RejectsEveryIdentifierAlreadyOnTheBus)
 {
   namespace ids = lexxhard::can_ids;
-  for (size_t i = 0; i < ids::kTableCount; ++i) {
+  for (size_t i = 0; i < ids::kTableCount; ++i)
+  {
     const int taken = static_cast<int>(ids::kTable[i].id);
     SCOPED_TRACE(taken);
-    if (taken == static_cast<int>(ids::TOF_GRID_DATA)) {
+    if (taken == static_cast<int>(ids::TOF_GRID_DATA))
+    {
       EXPECT_EQ("", validate(taken, 0x2a1)) << "own allocation refused as the data id";
       EXPECT_NE("", validate(0x2a0, taken)) << "data allocation accepted as the health id";
-    } else if (taken == static_cast<int>(ids::TOF_GRID_HEALTH)) {
+    }
+    else if (taken == static_cast<int>(ids::TOF_GRID_HEALTH))
+    {
       EXPECT_NE("", validate(taken, 0x2a1)) << "health allocation accepted as the data id";
       EXPECT_EQ("", validate(0x2a0, taken)) << "own allocation refused as the health id";
-    } else {
+    }
+    else
+    {
       EXPECT_NE("", validate(taken, 0x2a1)) << "accepted as the data id";
       EXPECT_NE("", validate(0x2a0, taken)) << "accepted as the health id";
     }
@@ -409,8 +450,7 @@ TEST(TofCanConfig, AssignedDefaultsAreValidAndRegistered)
 {
   namespace ids = lexxhard::can_ids;
   lexxhard::tof_can_ids out;
-  EXPECT_EQ("", lexxhard::validate_tof_can_ids(lexxhard::TOF_GRID_DATA_ID,
-                                               lexxhard::TOF_GRID_HEALTH_ID, out));
+  EXPECT_EQ("", lexxhard::validate_tof_can_ids(lexxhard::TOF_GRID_DATA_ID, lexxhard::TOF_GRID_HEALTH_ID, out));
   EXPECT_EQ(ids::TOF_GRID_DATA, out.data_id);
   EXPECT_EQ(ids::TOF_GRID_HEALTH, out.health_id);
   EXPECT_NE(ids::TOF_GRID_DATA, ids::TOF_GRID_HEALTH);
@@ -458,12 +498,9 @@ TEST(TofCanConfig, ParamPairRefusesMixedPresence)
 
 TEST(TofCanConfig, ParamPairRefusesAnyParseFailure)
 {
-  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, false, true))
-      << "data present but not an integer";
-  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, true, false))
-      << "health present but not an integer";
-  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, false, false))
-      << "both present but neither an integer";
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, false, true)) << "data present but not an integer";
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, true, false)) << "health present but not an integer";
+  EXPECT_NE("", lexxhard::check_tof_id_param_pair(true, true, false, false)) << "both present but neither an integer";
 }
 
 // 0x20F and 0x211 were missed by a hand-written table purely because they are declared in
@@ -511,13 +548,13 @@ TEST(TofCanConfig, EveryReceivedIdentifierHasAHandler)
 {
   namespace ids = lexxhard::can_ids;
   size_t rx = 0;
-  for (size_t i = 0; i < ids::kTableCount; ++i) {
+  for (size_t i = 0; i < ids::kTableCount; ++i)
+  {
     const auto& e = ids::kTable[i];
     if (e.dir != ids::direction::rx)
       continue;
     ++rx;
-    EXPECT_NE(ids::owner::none, e.who)
-        << "0x" << std::hex << e.id << " is filtered but has no owner";
+    EXPECT_NE(ids::owner::none, e.who) << "0x" << std::hex << e.id << " is filtered but has no owner";
     EXPECT_EQ(e.who, ids::route(e.id)) << "0x" << std::hex << e.id << " routes elsewhere";
   }
   EXPECT_EQ(22u, rx) << "receive filter size changed; confirm the dispatch was updated too";
@@ -528,7 +565,8 @@ TEST(TofCanConfig, EveryReceivedIdentifierHasAHandler)
 TEST(TofCanConfig, TransmittedIdentifiersAreNotRouted)
 {
   namespace ids = lexxhard::can_ids;
-  for (size_t i = 0; i < ids::kTableCount; ++i) {
+  for (size_t i = 0; i < ids::kTableCount; ++i)
+  {
     const auto& e = ids::kTable[i];
     if (e.dir != ids::direction::tx)
       continue;
@@ -541,7 +579,7 @@ TEST(TofCanConfig, TransmittedIdentifiersAreNotRouted)
 // every source, so with both sensors down only the first is ever reported.
 TEST(ReportThrottle, EverySourceReportsIndependentlyOnTheSameRound)
 {
-  lexxhard::report_throttle<2> t{5000};
+  lexxhard::report_throttle<2> t{ 5000 };
   EXPECT_TRUE(t.should_report(0, 0));
   EXPECT_TRUE(t.should_report(1, 0)) << "source 1 starved by source 0 on the same round";
 
@@ -553,7 +591,7 @@ TEST(ReportThrottle, EverySourceReportsIndependentlyOnTheSameRound)
 
 TEST(ReportThrottle, SlotsDoNotShareAClock)
 {
-  lexxhard::report_throttle<2> t{5000};
+  lexxhard::report_throttle<2> t{ 5000 };
   EXPECT_TRUE(t.should_report(0, 0));
   EXPECT_TRUE(t.should_report(1, 3000));
   EXPECT_TRUE(t.should_report(0, 5000)) << "slot 0 is due";
@@ -564,7 +602,7 @@ TEST(ReportThrottle, SlotsDoNotShareAClock)
 // of an interval that started while it was already broken.
 TEST(ReportThrottle, ClearMakesTheNextFaultReportAtOnce)
 {
-  lexxhard::report_throttle<2> t{5000};
+  lexxhard::report_throttle<2> t{ 5000 };
   EXPECT_TRUE(t.should_report(0, 0));
   EXPECT_FALSE(t.should_report(0, 100));
   t.clear(0);
@@ -579,7 +617,8 @@ TEST(TofGridAssembler, StartupGraceAppliesToTheReportableFlagToo)
   tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
 
   a.poll(100);
-  for (uint8_t src = 0; src < tof_grid_assembler::SOURCE_COUNT; ++src) {
+  for (uint8_t src = 0; src < tof_grid_assembler::SOURCE_COUNT; ++src)
+  {
     const auto st = a.source_status(src, 100);
     EXPECT_EQ(tof_grid_assembler::source_state::NEVER_SEEN, st.state);
     EXPECT_FALSE(st.alarm_active) << "source " << int(src) << " reportable inside the grace";
