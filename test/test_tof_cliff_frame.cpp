@@ -60,14 +60,14 @@ fr::decoded decode_vector(const ctr::vector& v)
 
 TEST(TofCliffFrame, ContractAndArtefactPins)
 {
-  EXPECT_STREQ("4b3dae652d73e6eabf17d721a90b06371effbb3aaefb3d25a2218bb860dd47f7",
+  EXPECT_STREQ("fb94706a4d2488aa9acdc7c7defcd7fac92379cba01964ab31f949fa50955188",
                ctr::kContractSha256);
-  EXPECT_STREQ("commissioning-2026-08-18b", ctr::kContractVersion);
+  EXPECT_STREQ("commissioning-2026-08-18c", ctr::kContractVersion);
   EXPECT_STREQ("commissioning-cliff-only-400k", ctr::kProfileName);
   // The contract SHA says which contract; this says which generated artefacts. Pinned
   // separately because the generator has twice changed what it emits while the contract
   // text -- and so its SHA -- stood still.
-  EXPECT_STREQ("1a0a2094e928392d29c7153f84de6951159113198714e0b734e6ebd39bf74b07",
+  EXPECT_STREQ("db9cae649df6de64d78a16576de475ed605423d443bb2c3a31f2adfe0b426af2",
                ctr::kArtefactSetId);
   // Asserted rather than merely present: this revision is not releasable, and the day
   // someone flips it must show up in a diff on both sides.
