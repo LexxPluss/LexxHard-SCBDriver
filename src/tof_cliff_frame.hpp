@@ -36,6 +36,7 @@
 // is worse than none: it looks decoded to anything that forgets to check.
 
 #include <cstdint>
+#include <optional>
 
 #include "tof_cliff_contract.h"
 
@@ -91,9 +92,17 @@ struct health {
 
 struct decoded {
     arrival which{arrival::not_ours};
-    // Meaningful only when `which` is not not_ours. Left at accept otherwise, and reading
-    // it in that case is a caller bug -- check `which` first.
-    verdict result{verdict::accept};
+    // Empty exactly when the identifier was not ours.
+    //
+    // Optional rather than a verdict with a default, because a default of accept would let
+    // a caller that checks only `result` treat a neighbouring identifier as a successful
+    // decode -- and every identifier around ours belongs to someone else's frames. There is
+    // no value here to misread: absence is the only representation of "not ours".
+    //
+    //   not_ours          -> no value
+    //   ours, well formed -> accept
+    //   ours, malformed   -> the specific rejection
+    std::optional<verdict> result{};
     measurement meas{};
     health state{};
 };

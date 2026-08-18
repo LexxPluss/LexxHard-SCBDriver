@@ -91,7 +91,8 @@ TEST(TofCliffFrame, EveryLayoutVectorGetsItsStatedVerdict)
     const ctr::vector& v = ctr::kVectors[i];
     const fr::decoded d = decode_vector(v);
     ASSERT_NE(static_cast<int>(fr::arrival::not_ours), static_cast<int>(d.which)) << v.name;
-    EXPECT_EQ(static_cast<int>(v.expected), static_cast<int>(d.result))
+    ASSERT_TRUE(d.result.has_value()) << v.name << ": one of our identifiers must yield a verdict";
+    EXPECT_EQ(static_cast<int>(v.expected), static_cast<int>(*d.result))
         << "vector " << v.name << " -- " << v.why;
   }
 }
@@ -103,7 +104,7 @@ TEST(TofCliffFrame, EveryVerdictTheDecoderCanReturnIsExercised)
 {
   std::set<int> seen;
   for (std::size_t i = 0; i < ctr::kVectorCount; ++i)
-    seen.insert(static_cast<int>(decode_vector(ctr::kVectors[i]).result));
+    seen.insert(static_cast<int>(*decode_vector(ctr::kVectors[i]).result));
 
   for (int r = static_cast<int>(ctr::verdict::accept);
        r <= static_cast<int>(ctr::verdict::chain_position_without_fault); ++r)
@@ -119,7 +120,8 @@ TEST(TofCliffFrame, RejectionLeavesTheOutputAtItsDefault)
     if (v.expected == ctr::verdict::accept) continue;
 
     const fr::decoded d = decode_vector(v);
-    ASSERT_NE(ctr::verdict::accept, d.result) << v.name;
+    ASSERT_TRUE(d.result.has_value()) << v.name;
+    ASSERT_NE(ctr::verdict::accept, *d.result) << v.name;
     // Compared field by field rather than by memcmp, because padding is not guaranteed.
     EXPECT_EQ(pristine_meas.source_id, d.meas.source_id) << v.name;
     EXPECT_EQ(pristine_meas.range_mm, d.meas.range_mm) << v.name;
@@ -151,7 +153,8 @@ TEST(TofCliffFrame, APayloadOnTheWrongIdentifierIsRejected)
     EXPECT_EQ(static_cast<int>(is_meas ? fr::arrival::health : fr::arrival::measurement),
               static_cast<int>(d.which))
         << v.name << ": the identifier must decide which decoder runs";
-    EXPECT_EQ(static_cast<int>(ctr::verdict::frame_type_mismatch), static_cast<int>(d.result))
+    ASSERT_TRUE(d.result.has_value()) << v.name << ": the other cliff identifier is still ours";
+    EXPECT_EQ(static_cast<int>(ctr::verdict::frame_type_mismatch), static_cast<int>(*d.result))
         << v.name << ": accepted on the wrong identifier";
     (is_meas ? measurements : healths)++;
   }
@@ -170,6 +173,10 @@ TEST(TofCliffFrame, NeighbouringIdentifiersAreNotClaimed)
     const fr::decoded d = fr::decode(id, v->dlc, v->bytes);
     EXPECT_EQ(static_cast<int>(fr::arrival::not_ours), static_cast<int>(d.which))
         << "claimed identifier 0x" << std::hex << id;
+    // The point of the optional: there is no verdict to mistake for success. A caller that
+    // checks only `result` finds nothing.
+    EXPECT_FALSE(d.result.has_value())
+        << "identifier 0x" << std::hex << id << " produced a verdict";
     EXPECT_EQ(0u, d.meas.range_mm) << "decoded a frame that was never ours";
   }
 }
@@ -182,7 +189,7 @@ TEST(TofCliffFrame, AValidMeasurementDecodesEveryField)
   ASSERT_NE(nullptr, v);
 
   const fr::decoded d = fr::decode(ctr::kMeasId, v->dlc, v->bytes);
-  ASSERT_EQ(ctr::verdict::accept, d.result);
+  ASSERT_EQ(ctr::verdict::accept, d.result.value());
   EXPECT_EQ(static_cast<int>(fr::arrival::measurement), static_cast<int>(d.which));
   EXPECT_EQ(0u, d.meas.source_id);
   EXPECT_EQ(1u, d.meas.mapping_epoch);
@@ -200,7 +207,7 @@ TEST(TofCliffFrame, TheNoTargetEncodingDecodesToTheSentinelNotAnEightThousandRan
   ASSERT_NE(nullptr, v);
 
   const fr::decoded d = fr::decode(ctr::kMeasId, v->dlc, v->bytes);
-  ASSERT_EQ(ctr::verdict::accept, d.result);
+  ASSERT_EQ(ctr::verdict::accept, d.result.value());
   EXPECT_EQ(255u, d.meas.raw_status);
   EXPECT_EQ(ctr::kSentinelInvalid, d.meas.range_mm);
   EXPECT_EQ(0u, d.meas.target_count);
@@ -222,8 +229,8 @@ TEST(TofCliffFrame, ASensorFaultAlsoCarriesTheSentinelSoTheClassIsWhatDistinguis
 
   const fr::decoded f = fr::decode(ctr::kMeasId, fault->dlc, fault->bytes);
   const fr::decoded e = fr::decode(ctr::kMeasId, empty->dlc, empty->bytes);
-  ASSERT_EQ(ctr::verdict::accept, f.result);
-  ASSERT_EQ(ctr::verdict::accept, e.result);
+  ASSERT_EQ(ctr::verdict::accept, f.result.value());
+  ASSERT_EQ(ctr::verdict::accept, e.result.value());
 
   EXPECT_TRUE(f.meas.range_is_sentinel);
   EXPECT_TRUE(e.meas.range_is_sentinel);
@@ -243,7 +250,7 @@ TEST(TofCliffFrame, EveryClassifiedStatusDecodesToItsTableClass)
     if (v.expected != ctr::verdict::accept) continue;
 
     const fr::decoded d = fr::decode(ctr::kMeasId, v.dlc, v.bytes);
-    ASSERT_EQ(ctr::verdict::accept, d.result) << v.name;
+    ASSERT_EQ(ctr::verdict::accept, d.result.value()) << v.name;
 
     const uint8_t raw = v.bytes[5];
     bool found = false;
@@ -263,7 +270,7 @@ TEST(TofCliffFrame, AValidHealthDecodesEveryField)
   ASSERT_NE(nullptr, v);
 
   const fr::decoded d = fr::decode(ctr::kHealthId, v->dlc, v->bytes);
-  ASSERT_EQ(ctr::verdict::accept, d.result);
+  ASSERT_EQ(ctr::verdict::accept, d.result.value());
   EXPECT_EQ(static_cast<int>(fr::arrival::health), static_cast<int>(d.which));
   EXPECT_EQ(1u, d.state.protocol_version);
   EXPECT_EQ(1u, d.state.mapping_epoch);
@@ -285,7 +292,7 @@ TEST(TofCliffFrame, AHeartbeatDecodesWithoutDescribingACycle)
   ASSERT_NE(nullptr, v);
 
   const fr::decoded d = fr::decode(ctr::kHealthId, v->dlc, v->bytes);
-  ASSERT_EQ(ctr::verdict::accept, d.result);
+  ASSERT_EQ(ctr::verdict::accept, d.result.value());
   EXPECT_EQ(0x0u, d.state.mapping_state);  // UNKNOWN
   EXPECT_FALSE(d.state.cycle_valid);
   EXPECT_FALSE(d.state.chain_fault);
@@ -302,7 +309,7 @@ TEST(TofCliffFrame, DecodingIsStateless)
   for (int pass = 0; pass < 3; ++pass) {
     for (std::size_t i = 0; i < ctr::kVectorCount; ++i) {
       const ctr::vector& v = ctr::kVectors[ctr::kVectorCount - 1 - i];
-      EXPECT_EQ(static_cast<int>(v.expected), static_cast<int>(decode_vector(v).result))
+      EXPECT_EQ(static_cast<int>(v.expected), static_cast<int>(*decode_vector(v).result))
           << "pass " << pass << " vector " << v.name;
     }
   }

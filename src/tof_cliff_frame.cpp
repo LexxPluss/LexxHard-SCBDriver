@@ -146,19 +146,21 @@ decoded decode(uint32_t can_id, uint8_t dlc, const uint8_t* data)
   decoded out;
   if (can_id == ctr::kMeasId) {
     out.which = arrival::measurement;
-    out.result = decode_measurement(dlc, data, out.meas);
-    if (out.result != verdict::accept) out.meas = measurement{};
+    const verdict v = decode_measurement(dlc, data, out.meas);
+    out.result = v;
+    if (v != verdict::accept) out.meas = measurement{};
     return out;
   }
   if (can_id == ctr::kHealthId) {
     out.which = arrival::health;
-    out.result = decode_health(dlc, data, out.state);
-    if (out.result != verdict::accept) out.state = health{};
+    const verdict v = decode_health(dlc, data, out.state);
+    out.result = v;
+    if (v != verdict::accept) out.state = health{};
     return out;
   }
-  // Not a cliff identifier. Left as not_ours with everything at its default, so a caller
-  // that ignores `which` cannot read a plausible-looking frame out of a frame that was
-  // never ours.
+  // Not a cliff identifier: not_ours, no verdict, everything else at its default. A caller
+  // that reads only `result` finds nothing to mistake for success, which is the whole
+  // reason it is optional.
   return out;
 }
 
