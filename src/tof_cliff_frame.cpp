@@ -18,20 +18,12 @@ const ctr::status_row* classify(uint8_t raw)
   return nullptr;
 }
 
-}  // namespace
-
-arrival classify_identifier(uint32_t can_id)
-{
-  if (can_id == ctr::kMeasId) return arrival::measurement;
-  if (can_id == ctr::kHealthId) return arrival::health;
-  return arrival::not_ours;
-}
-
+// Internal on purpose: see the header. Exposing these would let a caller pair a payload
+// with the wrong decoder, which is the mis-routing frame_type exists to catch.
 verdict decode_measurement(uint8_t dlc, const uint8_t* data, measurement& out)
 {
   // Length first: everything below indexes into the payload.
-  if (dlc != ctr::kDlc) return verdict::dlc_not_8;
-  if (data == nullptr) return verdict::dlc_not_8;
+  if (dlc != ctr::kDlc || data == nullptr) return verdict::dlc_not_8;
 
   // frame_type exists even though the identifiers are distinct, because a mis-routed
   // filter is otherwise a silent mis-decode rather than a rejection.
@@ -42,20 +34,22 @@ verdict decode_measurement(uint8_t dlc, const uint8_t* data, measurement& out)
   if (source_id >= ctr::kSourceCount) return verdict::source_id_out_of_range;
 
   // Byte 7 is reserved for a future capture tick. Using it is a version bump, so a
-  // non-zero value here is either a newer producer or a defect -- either way not
-  // decodable under this version.
+  // non-zero value is either a newer producer or a defect -- either way not decodable
+  // under this version.
   if (data[7] != 0) return verdict::reserved_field_nonzero;
 
+  // kMaxTargets, not kSourceCount: how many returns one sensor can find, which is a
+  // different quantity from how many sensors the chain carries.
   const uint8_t target_count = data[6];
-  if (target_count > ctr::kSourceCount) return verdict::target_count_malformed;
+  if (target_count > ctr::kMaxTargets) return verdict::target_count_malformed;
 
   const uint8_t raw_status = data[5];
   const ctr::status_row* row = classify(raw_status);
-  // A status with no row cannot be reduced to a safety outcome, so there is nothing
-  // safe to do with the range that accompanies it.
+  // A status with no row cannot be reduced to a safety outcome, so there is nothing safe
+  // to do with the range that accompanies it.
   if (row == nullptr) return verdict::status_undefined;
-  // The two NO_SAMPLE statuses are never transmitted. A frame carrying one is a
-  // producer defect, not a sample that happens to be unusable.
+  // The two NO_SAMPLE statuses are never transmitted. A frame carrying one is a producer
+  // defect, not a sample that happens to be unusable.
   if (row->cls == status_class::no_sample) return verdict::status_not_transmissible;
 
   const uint16_t range_mm = static_cast<uint16_t>((data[3] << 8) | data[4]);
@@ -79,14 +73,13 @@ verdict decode_measurement(uint8_t dlc, const uint8_t* data, measurement& out)
   out.raw_status = raw_status;
   out.target_count = target_count;
   out.cls = row->cls;
-  out.no_target = is_sentinel;
+  out.range_is_sentinel = is_sentinel;
   return verdict::accept;
 }
 
 verdict decode_health(uint8_t dlc, const uint8_t* data, health& out)
 {
-  if (dlc != ctr::kDlc) return verdict::dlc_not_8;
-  if (data == nullptr) return verdict::dlc_not_8;
+  if (dlc != ctr::kDlc || data == nullptr) return verdict::dlc_not_8;
 
   if (static_cast<uint8_t>(data[0] >> 4) != ctr::kHealthFrameType)
     return verdict::frame_type_mismatch;
@@ -94,7 +87,7 @@ verdict decode_health(uint8_t dlc, const uint8_t* data, health& out)
   const uint8_t protocol_version = static_cast<uint8_t>(data[0] & 0x0F);
   // Zero is not a valid version, so an all-zero byte cannot pass as one. Separated from
   // "unsupported" because an all-zero payload usually means a different bug than a
-  // producer from a later contract revision.
+  // producer built against a later contract revision.
   if (protocol_version == 0) return verdict::protocol_version_zero;
   if (protocol_version != ctr::kProtocolVersion) return verdict::protocol_version_unsupported;
 
@@ -113,8 +106,8 @@ verdict decode_health(uint8_t dlc, const uint8_t* data, health& out)
   const uint8_t sensor_fault_mask = static_cast<uint8_t>(data[5] & 0x0F);
   const bool cycle_valid = (flags & ctr::kCycleValidBit) != 0;
 
-  // With cycle_valid clear the frame describes no cycle, so both per-cycle fields must
-  // be empty. sensor_fault_mask is per cycle too, which is easy to overlook.
+  // With cycle_valid clear the frame describes no cycle, so both per-cycle fields must be
+  // empty. sensor_fault_mask is per cycle too, which is easy to overlook.
   if (!cycle_valid && (data[7] != 0 || sample_produced_mask != 0 || sensor_fault_mask != 0))
     return verdict::cycle_fields_inconsistent;
 
@@ -123,9 +116,8 @@ verdict decode_health(uint8_t dlc, const uint8_t* data, health& out)
   if ((sensor_fault_mask & static_cast<uint8_t>(~sample_produced_mask) & 0x0F) != 0)
     return verdict::mask_fault_without_sample;
 
-  // The contract's rule is compound: naming a position is contradictory only with no
-  // chain fault AND complete masks. An incomplete enumeration is itself a reason to
-  // name one.
+  // The contract's rule is compound: naming a position is contradictory only with no chain
+  // fault AND complete masks. An incomplete enumeration is itself a reason to name one.
   const bool chain_fault = (flags & ctr::kChainFaultBits) != 0;
   if (failing_chain_position != ctr::kChainPositionNone && !chain_fault &&
       enumerated_mask == 0x0F && model_verified_mask == 0x0F)
@@ -145,6 +137,29 @@ verdict decode_health(uint8_t dlc, const uint8_t* data, health& out)
   out.cycle_valid = cycle_valid;
   out.chain_fault = chain_fault;
   return verdict::accept;
+}
+
+}  // namespace
+
+decoded decode(uint32_t can_id, uint8_t dlc, const uint8_t* data)
+{
+  decoded out;
+  if (can_id == ctr::kMeasId) {
+    out.which = arrival::measurement;
+    out.result = decode_measurement(dlc, data, out.meas);
+    if (out.result != verdict::accept) out.meas = measurement{};
+    return out;
+  }
+  if (can_id == ctr::kHealthId) {
+    out.which = arrival::health;
+    out.result = decode_health(dlc, data, out.state);
+    if (out.result != verdict::accept) out.state = health{};
+    return out;
+  }
+  // Not a cliff identifier. Left as not_ours with everything at its default, so a caller
+  // that ignores `which` cannot read a plausible-looking frame out of a frame that was
+  // never ours.
+  return out;
 }
 
 }  // namespace tof_cliff_frame

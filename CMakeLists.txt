@@ -88,8 +88,13 @@ add_executable(
   src/receiver_tof.cpp
   src/tof_grid_assembler.cpp
   src/tof_can_config.cpp
+  src/tof_cliff_frame.cpp
   src/slip_decoder.cpp
 )
+# src/vendor holds the production half of the cliff wire contract, which
+# tof_cliff_frame.hpp includes by bare name. Only the production half is reachable this
+# way: the vector header lives in test/vendor, which is on no production include path.
+target_include_directories(receiver PRIVATE src/vendor)
 add_executable(
   sender
   src/devif.cpp
