@@ -161,4 +161,23 @@ if(CATKIN_ENABLE_TESTING)
     PRIVATE PACKAGE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   target_link_libraries(test_cliff_tof_safety_health ${catkin_LIBRARIES})
   add_dependencies(test_cliff_tof_safety_health ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+  # Frame-level cliff decode: validation and field unpacking only, no state machine, so
+  # like the grid assembler it needs neither ROS nor a CAN interface. Driven entirely by
+  # the layout vectors vendored from the firmware repository.
+  #
+  # src/vendor holds the contract's PRODUCTION half; test/vendor holds the vector header.
+  # The separation is structural rather than a convention: production code cannot reach
+  # the vectors, because test/vendor is not on any production include path. src/vendor is
+  # listed alongside src here because the vector header includes the production header by
+  # bare name -- correct in the firmware repository, where the generator puts both in one
+  # directory, and the reason this repository supplies both directories rather than keep a
+  # second copy of the production header to drift.
+  catkin_add_gtest(test_tof_cliff_frame
+    test/test_tof_cliff_frame.cpp
+    src/tof_cliff_frame.cpp
+  )
+  target_include_directories(test_tof_cliff_frame PRIVATE src src/vendor test)
+  target_link_libraries(test_tof_cliff_frame ${catkin_LIBRARIES})
+  add_dependencies(test_tof_cliff_frame ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 endif()
