@@ -74,7 +74,7 @@ std::string validate_tof_can_ids(int data_raw, int health_raw, tof_can_ids& out)
   //
   // The exemption is per role: each parameter may use its OWN registered allocation
   // (can_ids::TOF_GRID_DATA / TOF_GRID_HEALTH) or any identifier the table does not
-  // know. Swapping the two registered values, or taking the reserved drop-sense id,
+  // know. Swapping the two registered values, or taking either fixed cliff identifier,
   // is refused like any other collision.
   if (out.data_id != can_ids::TOF_GRID_DATA && can_ids::is_taken(out.data_id))
     return "ToF CAN identifier " + hex(out.data_id) + " is already in use on this bus";

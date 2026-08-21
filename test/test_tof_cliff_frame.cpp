@@ -32,12 +32,14 @@
 namespace ctr = tof_cliff_contract;
 namespace fr = tof_cliff_frame;
 
-namespace {
+namespace
+{
 
 const ctr::vector* find_vector(const char* name)
 {
   for (std::size_t i = 0; i < ctr::kVectorCount; ++i)
-    if (std::strcmp(ctr::kVectors[i].name, name) == 0) return &ctr::kVectors[i];
+    if (std::strcmp(ctr::kVectors[i].name, name) == 0)
+      return &ctr::kVectors[i];
   return nullptr;
 }
 
@@ -60,15 +62,13 @@ fr::decoded decode_vector(const ctr::vector& v)
 
 TEST(TofCliffFrame, ContractAndArtefactPins)
 {
-  EXPECT_STREQ("fb94706a4d2488aa9acdc7c7defcd7fac92379cba01964ab31f949fa50955188",
-               ctr::kContractSha256);
+  EXPECT_STREQ("fb94706a4d2488aa9acdc7c7defcd7fac92379cba01964ab31f949fa50955188", ctr::kContractSha256);
   EXPECT_STREQ("commissioning-2026-08-18c", ctr::kContractVersion);
   EXPECT_STREQ("commissioning-cliff-only-400k", ctr::kProfileName);
   // The contract SHA says which contract; this says which generated artefacts. Pinned
   // separately because the generator has twice changed what it emits while the contract
   // text -- and so its SHA -- stood still.
-  EXPECT_STREQ("db9cae649df6de64d78a16576de475ed605423d443bb2c3a31f2adfe0b426af2",
-               ctr::kArtefactSetId);
+  EXPECT_STREQ("db9cae649df6de64d78a16576de475ed605423d443bb2c3a31f2adfe0b426af2", ctr::kArtefactSetId);
   // Asserted rather than merely present: this revision is not releasable, and the day
   // someone flips it must show up in a diff on both sides.
   EXPECT_TRUE(ctr::kReleaseForbidden);
@@ -87,13 +87,13 @@ TEST(TofCliffFrame, ContractAndArtefactPins)
 TEST(TofCliffFrame, EveryLayoutVectorGetsItsStatedVerdict)
 {
   ASSERT_GT(ctr::kVectorCount, 0u);
-  for (std::size_t i = 0; i < ctr::kVectorCount; ++i) {
+  for (std::size_t i = 0; i < ctr::kVectorCount; ++i)
+  {
     const ctr::vector& v = ctr::kVectors[i];
     const fr::decoded d = decode_vector(v);
     ASSERT_NE(static_cast<int>(fr::arrival::not_ours), static_cast<int>(d.which)) << v.name;
     ASSERT_TRUE(d.result.has_value()) << v.name << ": one of our identifiers must yield a verdict";
-    EXPECT_EQ(static_cast<int>(v.expected), static_cast<int>(*d.result))
-        << "vector " << v.name << " -- " << v.why;
+    EXPECT_EQ(static_cast<int>(v.expected), static_cast<int>(*d.result)) << "vector " << v.name << " -- " << v.why;
   }
 }
 
@@ -115,9 +115,11 @@ TEST(TofCliffFrame, RejectionLeavesTheOutputAtItsDefault)
 {
   const fr::measurement pristine_meas{};
   const fr::health pristine_health{};
-  for (std::size_t i = 0; i < ctr::kVectorCount; ++i) {
+  for (std::size_t i = 0; i < ctr::kVectorCount; ++i)
+  {
     const ctr::vector& v = ctr::kVectors[i];
-    if (v.expected == ctr::verdict::accept) continue;
+    if (v.expected == ctr::verdict::accept)
+      continue;
 
     const fr::decoded d = decode_vector(v);
     ASSERT_TRUE(d.result.has_value()) << v.name;
@@ -142,16 +144,17 @@ TEST(TofCliffFrame, APayloadOnTheWrongIdentifierIsRejected)
   // other cliff identifier, must be refused -- and refused as a frame_type mismatch, not
   // quietly decoded as the other kind.
   int measurements = 0, healths = 0;
-  for (std::size_t i = 0; i < ctr::kVectorCount; ++i) {
+  for (std::size_t i = 0; i < ctr::kVectorCount; ++i)
+  {
     const ctr::vector& v = ctr::kVectors[i];
-    if (v.expected != ctr::verdict::accept) continue;
+    if (v.expected != ctr::verdict::accept)
+      continue;
 
     const bool is_meas = (v.kind == ctr::frame_kind::measurement);
     const uint32_t wrong = is_meas ? ctr::kHealthId : ctr::kMeasId;
     const fr::decoded d = fr::decode(wrong, v.dlc, v.bytes);
 
-    EXPECT_EQ(static_cast<int>(is_meas ? fr::arrival::health : fr::arrival::measurement),
-              static_cast<int>(d.which))
+    EXPECT_EQ(static_cast<int>(is_meas ? fr::arrival::health : fr::arrival::measurement), static_cast<int>(d.which))
         << v.name << ": the identifier must decide which decoder runs";
     ASSERT_TRUE(d.result.has_value()) << v.name << ": the other cliff identifier is still ours";
     EXPECT_EQ(static_cast<int>(ctr::verdict::frame_type_mismatch), static_cast<int>(*d.result))
@@ -169,14 +172,14 @@ TEST(TofCliffFrame, NeighbouringIdentifiersAreNotClaimed)
   ASSERT_NE(nullptr, v);
   // These belong to the grid contract and to the SCB peripheral block. Claiming one would
   // take a frame away from its owner, silently.
-  for (uint32_t id : {0x204u, 0x213u, 0x214u, 0x215u, 0x218u}) {
+  for (uint32_t id : { 0x204u, 0x213u, 0x214u, 0x215u, 0x218u })
+  {
     const fr::decoded d = fr::decode(id, v->dlc, v->bytes);
     EXPECT_EQ(static_cast<int>(fr::arrival::not_ours), static_cast<int>(d.which))
         << "claimed identifier 0x" << std::hex << id;
     // The point of the optional: there is no verdict to mistake for success. A caller that
     // checks only `result` finds nothing.
-    EXPECT_FALSE(d.result.has_value())
-        << "identifier 0x" << std::hex << id << " produced a verdict";
+    EXPECT_FALSE(d.result.has_value()) << "identifier 0x" << std::hex << id << " produced a verdict";
     EXPECT_EQ(0u, d.meas.range_mm) << "decoded a frame that was never ours";
   }
 }
@@ -235,8 +238,8 @@ TEST(TofCliffFrame, ASensorFaultAlsoCarriesTheSentinelSoTheClassIsWhatDistinguis
   EXPECT_TRUE(f.meas.range_is_sentinel);
   EXPECT_TRUE(e.meas.range_is_sentinel);
   EXPECT_EQ(f.meas.range_mm, e.meas.range_mm) << "the encoding cannot tell them apart";
-  EXPECT_NE(static_cast<int>(f.meas.cls), static_cast<int>(e.meas.cls))
-      << "the class must, and is the only thing that does";
+  EXPECT_NE(static_cast<int>(f.meas.cls), static_cast<int>(e.meas.cls)) << "the class must, and is the only thing that "
+                                                                           "does";
   EXPECT_EQ(static_cast<int>(ctr::status_class::sensor_fault), static_cast<int>(f.meas.cls));
   EXPECT_EQ(static_cast<int>(ctr::status_class::no_target), static_cast<int>(e.meas.cls));
 }
@@ -244,20 +247,24 @@ TEST(TofCliffFrame, ASensorFaultAlsoCarriesTheSentinelSoTheClassIsWhatDistinguis
 TEST(TofCliffFrame, EveryClassifiedStatusDecodesToItsTableClass)
 {
   // The decoder must not carry its own opinion about what a status means.
-  for (std::size_t i = 0; i < ctr::kVectorCount; ++i) {
+  for (std::size_t i = 0; i < ctr::kVectorCount; ++i)
+  {
     const ctr::vector& v = ctr::kVectors[i];
-    if (v.kind != ctr::frame_kind::measurement) continue;
-    if (v.expected != ctr::verdict::accept) continue;
+    if (v.kind != ctr::frame_kind::measurement)
+      continue;
+    if (v.expected != ctr::verdict::accept)
+      continue;
 
     const fr::decoded d = fr::decode(ctr::kMeasId, v.dlc, v.bytes);
     ASSERT_EQ(ctr::verdict::accept, d.result.value()) << v.name;
 
     const uint8_t raw = v.bytes[5];
     bool found = false;
-    for (std::size_t j = 0; j < ctr::kStatusRowCount; ++j) {
-      if (ctr::kStatusTable[j].raw != raw) continue;
-      EXPECT_EQ(static_cast<int>(ctr::kStatusTable[j].cls), static_cast<int>(d.meas.cls))
-          << v.name;
+    for (std::size_t j = 0; j < ctr::kStatusRowCount; ++j)
+    {
+      if (ctr::kStatusTable[j].raw != raw)
+        continue;
+      EXPECT_EQ(static_cast<int>(ctr::kStatusTable[j].cls), static_cast<int>(d.meas.cls)) << v.name;
       found = true;
     }
     EXPECT_TRUE(found) << "accepted an unclassified status: " << v.name;
@@ -306,8 +313,10 @@ TEST(TofCliffFrame, DecodingIsStateless)
 {
   // No cycle tracking, no watchdog, no memory of anything: the same bytes must give the
   // same answer however many times they arrive, and in whatever order.
-  for (int pass = 0; pass < 3; ++pass) {
-    for (std::size_t i = 0; i < ctr::kVectorCount; ++i) {
+  for (int pass = 0; pass < 3; ++pass)
+  {
+    for (std::size_t i = 0; i < ctr::kVectorCount; ++i)
+    {
       const ctr::vector& v = ctr::kVectors[ctr::kVectorCount - 1 - i];
       EXPECT_EQ(static_cast<int>(v.expected), static_cast<int>(*decode_vector(v).result))
           << "pass " << pass << " vector " << v.name;

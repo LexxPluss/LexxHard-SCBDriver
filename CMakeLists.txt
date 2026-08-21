@@ -89,6 +89,7 @@ add_executable(
   src/tof_grid_assembler.cpp
   src/tof_can_config.cpp
   src/tof_cliff_frame.cpp
+  src/receiver_cliff.cpp
   src/slip_decoder.cpp
 )
 # src/vendor holds the production half of the cliff wire contract, which
@@ -185,4 +186,17 @@ if(CATKIN_ENABLE_TESTING)
   target_include_directories(test_tof_cliff_frame PRIVATE src src/vendor test)
   target_link_libraries(test_tof_cliff_frame ${catkin_LIBRARIES})
   add_dependencies(test_tof_cliff_frame ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+  # Non-ROS cliff ingress: the same shared CAN registry route used by receiver.cpp, the
+  # production frame decoder, and a fake typed sink. Captured dasher1 payloads make the
+  # producer/consumer splice executable without granting an unproven frame access to the
+  # live robot bus.
+  catkin_add_gtest(test_receiver_cliff
+    test/test_receiver_cliff.cpp
+    src/receiver_cliff.cpp
+    src/tof_cliff_frame.cpp
+  )
+  target_include_directories(test_receiver_cliff PRIVATE src src/vendor)
+  target_link_libraries(test_receiver_cliff ${catkin_LIBRARIES})
+  add_dependencies(test_receiver_cliff ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 endif()

@@ -40,7 +40,8 @@
 
 #include "tof_cliff_contract.h"
 
-namespace tof_cliff_frame {
+namespace tof_cliff_frame
+{
 
 using tof_cliff_contract::status_class;
 using tof_cliff_contract::verdict;
@@ -49,62 +50,66 @@ using tof_cliff_contract::verdict;
 // every verdict on purpose: "not a cliff frame" and "a malformed cliff frame" are
 // different facts, and a decoder that collapsed them would let a routing bug read as a
 // protocol error.
-enum class arrival : uint8_t {
-    measurement,
-    health,
-    not_ours,
+enum class arrival : uint8_t
+{
+  measurement,
+  health,
+  not_ours,
 };
 
-struct measurement {
-    uint8_t source_id{0};
-    uint8_t mapping_epoch{0};
-    uint8_t cycle_seq{0};
-    uint16_t range_mm{0};
-    uint8_t raw_status{0};
-    uint8_t target_count{0};
-    // The class is the safety-relevant fact; a consumer must branch on it and never
-    // re-derive it from the raw status.
-    status_class cls{status_class::no_target};
-    // Names the encoding, not the meaning. Both NO_TARGET and SENSOR_FAULT carry the
-    // sentinel, so this being true does NOT mean "no target was found" -- read `cls` for
-    // that. It is spelled this way because the obvious name, no_target, would have let a
-    // hardware fault read downstream as an ordinary empty floor.
-    bool range_is_sentinel{false};
+struct measurement
+{
+  uint8_t source_id{ 0 };
+  uint8_t mapping_epoch{ 0 };
+  uint8_t cycle_seq{ 0 };
+  uint16_t range_mm{ 0 };
+  uint8_t raw_status{ 0 };
+  uint8_t target_count{ 0 };
+  // The class is the safety-relevant fact; a consumer must branch on it and never
+  // re-derive it from the raw status.
+  status_class cls{ status_class::no_target };
+  // Names the encoding, not the meaning. Both NO_TARGET and SENSOR_FAULT carry the
+  // sentinel, so this being true does NOT mean "no target was found" -- read `cls` for
+  // that. It is spelled this way because the obvious name, no_target, would have let a
+  // hardware fault read downstream as an ordinary empty floor.
+  bool range_is_sentinel{ false };
 };
 
-struct health {
-    uint8_t protocol_version{0};
-    uint8_t mapping_epoch{0};
-    uint8_t health_seq{0};
-    uint8_t mapping_state{0};
-    uint8_t flags{0};
-    uint8_t enumerated_mask{0};
-    uint8_t model_verified_mask{0};
-    uint8_t sample_produced_mask{0};
-    uint8_t sensor_fault_mask{0};
-    uint8_t failing_chain_position{0};
-    uint8_t cycle_seq{0};
-    // Derived from `flags` so a consumer does not repeat the bit arithmetic. A chain fault
-    // is bits 0-2 only: cycle_valid is not a fault and must not be counted as one.
-    bool cycle_valid{false};
-    bool chain_fault{false};
+struct health
+{
+  uint8_t protocol_version{ 0 };
+  uint8_t mapping_epoch{ 0 };
+  uint8_t health_seq{ 0 };
+  uint8_t mapping_state{ 0 };
+  uint8_t flags{ 0 };
+  uint8_t enumerated_mask{ 0 };
+  uint8_t model_verified_mask{ 0 };
+  uint8_t sample_produced_mask{ 0 };
+  uint8_t sensor_fault_mask{ 0 };
+  uint8_t failing_chain_position{ 0 };
+  uint8_t cycle_seq{ 0 };
+  // Derived from `flags` so a consumer does not repeat the bit arithmetic. A chain fault
+  // is bits 0-2 only: cycle_valid is not a fault and must not be counted as one.
+  bool cycle_valid{ false };
+  bool chain_fault{ false };
 };
 
-struct decoded {
-    arrival which{arrival::not_ours};
-    // Empty exactly when the identifier was not ours.
-    //
-    // Optional rather than a verdict with a default, because a default of accept would let
-    // a caller that checks only `result` treat a neighbouring identifier as a successful
-    // decode -- and every identifier around ours belongs to someone else's frames. There is
-    // no value here to misread: absence is the only representation of "not ours".
-    //
-    //   not_ours          -> no value
-    //   ours, well formed -> accept
-    //   ours, malformed   -> the specific rejection
-    std::optional<verdict> result{};
-    measurement meas{};
-    health state{};
+struct decoded
+{
+  arrival which{ arrival::not_ours };
+  // Empty exactly when the identifier was not ours.
+  //
+  // Optional rather than a verdict with a default, because a default of accept would let
+  // a caller that checks only `result` treat a neighbouring identifier as a successful
+  // decode -- and every identifier around ours belongs to someone else's frames. There is
+  // no value here to misread: absence is the only representation of "not ours".
+  //
+  //   not_ours          -> no value
+  //   ours, well formed -> accept
+  //   ours, malformed   -> the specific rejection
+  std::optional<verdict> result{};
+  measurement meas{};
+  health state{};
 };
 
 // The only entry point. `data` must point to at least `dlc` bytes; a dlc other than 8 is

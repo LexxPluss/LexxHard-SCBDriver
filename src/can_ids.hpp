@@ -51,8 +51,7 @@ enum class direction : uint8_t
   rx,        // received from the SCB, so it belongs in the filter and needs a route
   tx,        // transmitted to the SCB; invisible to the filter, but still taken on the bus
   reserved,  // allocated on this bus but neither filtered nor routed by default; the
-             // feature that owns it adds it to the filter at runtime, or (drop-sense)
-             // its payload contract does not exist yet and nothing may claim it
+             // feature that owns it adds it to the filter at runtime
 };
 
 enum class owner : uint8_t
@@ -68,6 +67,7 @@ enum class owner : uint8_t
   tug_encoder,
   gpio,
   led,
+  cliff,
 };
 
 struct entry
@@ -114,11 +114,16 @@ constexpr uint32_t GPIO_TX = 0x211;
 // ToF grid transport (AMRSW-2322): a team-authorized self-assigned integration
 // allocation, recorded in the firmware wire contract (docs/can, version 2026-08-02f).
 // The data/health pair enters the receive filter only when tof_transport=scb_can
-// enables it at runtime; 0x216 is reserved for the drop-sense frame, whose payload
-// contract does not exist yet, so nothing may claim it.
+// enables it at runtime.
 constexpr uint32_t TOF_GRID_DATA = 0x214;
 constexpr uint32_t TOF_GRID_HEALTH = 0x215;
-constexpr uint32_t TOF_DROP_SENSE_RESERVED = 0x216;
+
+// Cliff ToF transport (AMRSW-2994). These are fixed by the generated cliff wire
+// contract, commissioning-2026-08-18c. Unlike the grid pair they are always received:
+// the health heartbeat exists before a mapping is proven, and ignoring it would hide
+// precisely the UNKNOWN/LOST/FAULT state the commissioning path needs to observe.
+constexpr uint32_t TOF_CLIFF_MEASUREMENT = 0x216;
+constexpr uint32_t TOF_CLIFF_HEALTH = 0x217;
 
 constexpr entry kTable[]{
   { BMU_0, direction::rx, owner::bmu },
@@ -152,7 +157,8 @@ constexpr entry kTable[]{
   { GPIO_TX, direction::tx, owner::none },
   { TOF_GRID_DATA, direction::reserved, owner::none },
   { TOF_GRID_HEALTH, direction::reserved, owner::none },
-  { TOF_DROP_SENSE_RESERVED, direction::reserved, owner::none },
+  { TOF_CLIFF_MEASUREMENT, direction::rx, owner::cliff },
+  { TOF_CLIFF_HEALTH, direction::rx, owner::cliff },
 };
 constexpr size_t kTableCount = sizeof(kTable) / sizeof(entry);
 
