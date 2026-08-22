@@ -57,12 +57,17 @@ public:
   // reserved fields, and the low nibble of byte 1 is explicitly not among them.
   static constexpr uint8_t STATUS_FLAG_MASK = 0x0F;
 
-  static constexpr uint32_t ASSEMBLY_TIMEOUT_MS = 300;
+  // Every timestamp in this class is a 64-bit monotonic millisecond count, and the caller
+  // must supply one. A 32-bit count wraps every 49.7 days, and the comparison that decides
+  // HEALTHY used to need a signed cast to tolerate a reference in the future -- which then
+  // read a 24.8-day-old reference as recent and emitted a false SOURCE_RECOVERED. Sixty-four
+  // bits removes the wrap instead of arranging the arithmetic around it.
+  static constexpr uint64_t ASSEMBLY_TIMEOUT_MS = 300;
   // Deliberately independent of ASSEMBLY_TIMEOUT_MS: that one bounds how long a single
   // grid may take to arrive, this one bounds how long the robot may go without a usable
   // grid. They are not the same property and will not move together.
-  static constexpr uint32_t SOURCE_STALE_MS = 1000;
-  static constexpr uint32_t STARTUP_GRACE_MS = 3000;
+  static constexpr uint64_t SOURCE_STALE_MS = 1000;
+  static constexpr uint64_t STARTUP_GRACE_MS = 3000;
 
   // Stable logical identity. NOT the chain position: the firmware owns the
   // chain_position -> source_id mapping and is the only place the physical topology
@@ -138,26 +143,26 @@ public:
     // reports on state alone announces two broken sensors on every single boot.
     bool alarm_active{ false };
     bool ever_published{ false };
-    uint32_t since_last_frame_ms{ 0 };
-    uint32_t since_last_publish_ms{ 0 };
+    uint64_t since_last_frame_ms{ 0 };
+    uint64_t since_last_publish_ms{ 0 };
   };
 
   // can_id is compared against the two configured identifiers. They stay constructor
   // arguments even now that the allocation is assigned (wire contract 2026-08-02f):
   // nothing in this class may hard-code a literal, and the tests prove the numbers
   // carry no meaning by using arbitrary ones.
-  tof_grid_assembler(uint32_t data_can_id, uint32_t health_can_id, uint32_t startup_time_ms);
+  tof_grid_assembler(uint32_t data_can_id, uint32_t health_can_id, uint64_t startup_time_ms);
 
   // Returns a grid only when every publish-gate condition holds. Anything doubtful is
   // rejected and counted rather than published with a warning: a partial or inconsistent
   // grid reads downstream as "no obstacle", so publishing it fails in the unsafe direction.
-  std::optional<grid> consume(uint32_t can_id, uint8_t dlc, const uint8_t* payload, uint32_t now_ms);
+  std::optional<grid> consume(uint32_t can_id, uint8_t dlc, const uint8_t* payload, uint64_t now_ms);
 
   // Must be driven from a timer, independently of traffic. consume() cannot detect a
   // source that has gone silent, because with no frames arriving it is never called.
-  void poll(uint32_t now_ms);
+  void poll(uint64_t now_ms);
 
-  status source_status(uint8_t source, uint32_t now_ms) const;
+  status source_status(uint8_t source, uint64_t now_ms) const;
 
   uint32_t count(event e) const
   {
@@ -208,7 +213,7 @@ private:
     bool active{ false };
     uint8_t generation{ 0 };
     uint16_t bitmap{ 0 };
-    uint32_t first_seen_ms{ 0 };
+    uint64_t first_seen_ms{ 0 };
     bool health_seen{ false };
     health_info health{};
     std::array<uint16_t, ZONES> zones_mm{};
@@ -218,8 +223,8 @@ private:
   {
     bool ever_seen_frame{ false };
     bool ever_published{ false };
-    uint32_t last_frame_ms{ 0 };
-    uint32_t last_publish_ms{ 0 };
+    uint64_t last_frame_ms{ 0 };
+    uint64_t last_publish_ms{ 0 };
     // True between raising an alarm and clearing it, so alarms are edge triggered: a ROS
     // layer polling at 10 Hz must not get one event per tick for an unchanged condition.
     bool alarm_active{ false };
@@ -237,12 +242,12 @@ private:
   static bool normalised_equal(const health_info& a, const health_info& b);
   void emit(event e, uint8_t source = SOURCE_COUNT, source_state state = source_state::NEVER_SEEN);
   void retire(uint8_t source);
-  void expire_stale_slots(uint32_t now_ms);
-  std::optional<grid> try_complete(uint8_t source, uint32_t now_ms);
+  void expire_stale_slots(uint64_t now_ms);
+  std::optional<grid> try_complete(uint8_t source, uint64_t now_ms);
 
   uint32_t data_can_id_;
   uint32_t health_can_id_;
-  uint32_t startup_time_ms_;
+  uint64_t startup_time_ms_;
   std::array<slot, SOURCE_COUNT> slots_{};
   std::array<tracker, SOURCE_COUNT> trackers_{};
   std::array<uint32_t, static_cast<size_t>(event::EVENT_COUNT)> counters_{};

@@ -33,12 +33,15 @@ namespace
 
 constexpr uint8_t DLC = 8;
 
-uint32_t elapsed(uint32_t from, uint32_t to)
+uint64_t elapsed(uint64_t from, uint64_t to)
 {
-  // Monotonic, but the caller's clock may wrap. Unsigned subtraction handles the wrap; a
-  // "to" that precedes "from" would otherwise become an enormous elapsed time and expire
-  // every slot at once.
-  return static_cast<uint32_t>(to - from);
+  // 64-bit monotonic milliseconds, so there is no wrap to arrange around: at this width the
+  // counter outlives the hardware. The one rule left is that "to" must never precede "from",
+  // because unsigned subtraction would turn that into an enormous elapsed time and expire
+  // every slot at once. Callers therefore never pass a reference that can be in the future --
+  // see source_status(), which compares against the startup time rather than against the end
+  // of the startup grace for exactly this reason.
+  return to - from;
 }
 
 }  // namespace
@@ -66,7 +69,7 @@ bool tof_grid_assembler::normalised_equal(const health_info& a, const health_inf
          a.boards_detected == b.boards_detected && a.last_error == b.last_error;
 }
 
-tof_grid_assembler::tof_grid_assembler(uint32_t data_can_id, uint32_t health_can_id, uint32_t startup_time_ms)
+tof_grid_assembler::tof_grid_assembler(uint32_t data_can_id, uint32_t health_can_id, uint64_t startup_time_ms)
   : data_can_id_{ data_can_id }, health_can_id_{ health_can_id }, startup_time_ms_{ startup_time_ms }
 {
 }
@@ -86,7 +89,7 @@ void tof_grid_assembler::retire(uint8_t source)
   s = slot{};
 }
 
-void tof_grid_assembler::expire_stale_slots(uint32_t now_ms)
+void tof_grid_assembler::expire_stale_slots(uint64_t now_ms)
 {
   for (uint8_t src = 0; src < SOURCE_COUNT; ++src)
   {
@@ -100,7 +103,7 @@ void tof_grid_assembler::expire_stale_slots(uint32_t now_ms)
   }
 }
 
-std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t source, uint32_t now_ms)
+std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t source, uint64_t now_ms)
 {
   slot& s = slots_[source];
   if (!s.active || s.bitmap != COMPLETE_BITMAP || !s.health_seen)
@@ -146,7 +149,7 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t
 }
 
 std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can_id, uint8_t dlc,
-                                                                    const uint8_t* payload, uint32_t now_ms)
+                                                                    const uint8_t* payload, uint64_t now_ms)
 {
   const bool is_data = can_id == data_can_id_;
   const bool is_health = can_id == health_can_id_;
@@ -286,7 +289,7 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::consume(uint32_t can
   return try_complete(source, now_ms);
 }
 
-tof_grid_assembler::status tof_grid_assembler::source_status(uint8_t source, uint32_t now_ms) const
+tof_grid_assembler::status tof_grid_assembler::source_status(uint8_t source, uint64_t now_ms) const
 {
   status out;
   if (source >= SOURCE_COUNT)
@@ -304,10 +307,18 @@ tof_grid_assembler::status tof_grid_assembler::source_status(uint8_t source, uin
     return out;
   }
 
-  // A source that has never published is measured from the end of the startup grace, so a
-  // sensor that simply takes a moment to warm up is not reported as a fault.
-  const uint32_t reference = t.ever_published ? t.last_publish_ms : startup_time_ms_ + STARTUP_GRACE_MS;
-  if (static_cast<int32_t>(now_ms - reference) <= static_cast<int32_t>(SOURCE_STALE_MS))
+  // A source that has never published is still measured from the end of the startup grace, so
+  // a sensor that takes a moment to warm up is not reported as a fault -- but the comparison is
+  // arranged so that no reference is ever in the future.
+  //
+  // The previous form computed `startup + GRACE` as the reference and needed a SIGNED cast to
+  // tolerate being before it, which is what broke: once `now - reference` exceeded 2^31 the cast
+  // read a very old reference as recent, HEALTHY was returned for a dead source, and poll() then
+  // emitted a false SOURCE_RECOVERED and stopped alarming. Adding the grace to the BUDGET rather
+  // than to the reference keeps every subtraction unsigned and every reference in the past.
+  const bool healthy = t.ever_published ? elapsed(t.last_publish_ms, now_ms) <= SOURCE_STALE_MS :
+                                          elapsed(startup_time_ms_, now_ms) <= STARTUP_GRACE_MS + SOURCE_STALE_MS;
+  if (healthy)
   {
     out.state = source_state::HEALTHY;
     return out;
@@ -318,7 +329,7 @@ tof_grid_assembler::status tof_grid_assembler::source_status(uint8_t source, uin
   return out;
 }
 
-void tof_grid_assembler::poll(uint32_t now_ms)
+void tof_grid_assembler::poll(uint64_t now_ms)
 {
   expire_stale_slots(now_ms);
 

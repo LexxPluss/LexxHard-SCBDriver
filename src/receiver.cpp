@@ -65,19 +65,19 @@ public:
   {
   }
 
-  void enable_tof_can(uint32_t data_id, uint32_t health_id, uint32_t now_ms)
+  void enable_tof_can(uint32_t data_id, uint32_t health_id, uint64_t now_ms)
   {
     tof_data_can_id = data_id;
     tof_health_can_id = health_id;
     tof.configure_can(data_id, health_id, now_ms);
   }
 
-  void poll_tof(uint32_t now_ms)
+  void poll_tof(uint64_t now_ms)
   {
     tof.poll(now_ms);
   }
 
-  void handle_can(const can_frame& frame, uint32_t now_ms)
+  void handle_can(const can_frame& frame, uint64_t now_ms)
   {
     if (tof_data_can_id && (frame.can_id == *tof_data_can_id || frame.can_id == *tof_health_can_id))
     {
@@ -141,10 +141,13 @@ private:
   receiver_tof tof;
 };
 
-uint32_t monotonic_ms()
+// 64 bits, deliberately. Truncating steady_clock to 32 bits wrapped every 49.7 days and put
+// the whole ToF watchdog on a clock that could run backwards; every consumer of this value now
+// takes uint64_t so the wrap is gone rather than compensated for.
+uint64_t monotonic_ms()
 {
   using namespace std::chrono;
-  return static_cast<uint32_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+  return static_cast<uint64_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
 tof_transport resolve_tof_transport(ros::NodeHandle& pn)
@@ -292,8 +295,8 @@ int main(int argc, char* argv[])
     }
   }
 
-  uint32_t last_tof_poll_ms = monotonic_ms();
-  constexpr uint32_t tof_poll_interval_ms = 100;
+  uint64_t last_tof_poll_ms = monotonic_ms();
+  constexpr uint64_t tof_poll_interval_ms = 100;
 
   // Start I/O threads
   std::atomic<bool> running{ true };
@@ -328,7 +331,7 @@ int main(int argc, char* argv[])
     // The watchdog has to run whether or not frames are arriving; a silent source is
     // precisely the case consume() can never see. Throttled because the surrounding loop
     // does not rate limit itself.
-    uint32_t const now = monotonic_ms();
+    uint64_t const now = monotonic_ms();
     if (now - last_tof_poll_ms >= tof_poll_interval_ms)
     {
       last_tof_poll_ms = now;

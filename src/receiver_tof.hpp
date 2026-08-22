@@ -55,19 +55,19 @@ public:
   // Only called for tof_transport::scb_can. The identifiers arrive from the caller: the
   // assigned allocation (wire contract 2026-08-02f) is the parameter-pair default in
   // receiver.cpp, and nothing below that layer hard-codes a value.
-  void configure_can(uint32_t data_can_id, uint32_t health_can_id, uint32_t now_ms);
+  void configure_can(uint32_t data_can_id, uint32_t health_can_id, uint64_t now_ms);
 
   void handle(const std::vector<uint8_t>& packet);  // legacy UART/SLIP path
-  void handle_can(const can_frame& frame, uint32_t now_ms);
+  void handle_can(const can_frame& frame, uint64_t now_ms);
 
   // Drives the watchdog. Must be called even when no frames are arriving; that is the
   // only case it exists for.
-  void poll(uint32_t now_ms);
+  void poll(uint64_t now_ms);
 
 private:
   void publish_grid(const lexxhard::tof_grid_assembler::grid& g);
   void drain_diagnostics();
-  void report_persistent_state(uint32_t now_ms);
+  void report_persistent_state(uint64_t now_ms);
 
   static constexpr int queue_size{ 10 };
   ros::Publisher pub_tof_front;

@@ -138,6 +138,16 @@ replay_result replay(const tof_contract::Scenario& sc, tof_grid_assembler& asm_)
   return r;
 }
 
+// Chunks without the closing health frame: evidence that the transport is alive, but no
+// grid can complete, so nothing may clear an alarm.
+void feed_chunks_only(tof_grid_assembler& a, uint64_t t)
+{
+  const auto& gv = tof_contract::kGridVectors[0];
+  for (size_t k = 0; k < tof_grid_assembler::CHUNKS; ++k)
+    a.consume(DATA_ID, 8, gv.data_frames[k].bytes, t);
+  a.drain_events();
+}
+
 std::string describe(const std::map<std::string, uint32_t>& m)
 {
   std::string out;
@@ -291,7 +301,7 @@ namespace
 
 // Feeds one complete grid for source 0 and returns whatever consume() emitted, with no
 // poll in between.
-std::map<std::string, uint32_t> feed_grid(tof_grid_assembler& a, uint32_t t)
+std::map<std::string, uint32_t> feed_grid(tof_grid_assembler& a, uint64_t t)
 {
   const auto& gv = tof_contract::kGridVectors[0];  // ramp, source 0, generation 0
   for (size_t k = 0; k < tof_grid_assembler::CHUNKS; ++k)
@@ -642,6 +652,120 @@ TEST(TofGridAssembler, AlarmClearsOnRecoveryAndReRaisesOnTheNextFault)
   const auto st = a.source_status(0, 5000);
   EXPECT_TRUE(st.alarm_active);
   EXPECT_EQ(tof_grid_assembler::source_state::STALE_NO_FRAMES, st.state);
+}
+
+// The four tests below pin the 64-bit monotonic clock. Before it, every timestamp was a
+// uint32_t and the HEALTHY comparison used a signed cast to tolerate a reference that could
+// sit in the future during the startup grace. That cast is what broke: once the unsigned
+// difference passed 2^31 it read as negative, a long-dead source was classified HEALTHY, and
+// poll() then emitted a SOURCE_RECOVERED for a sensor that had never come back.
+TEST(TofGridAssembler, NoFalseRecoveryBeyondTheSignedRange)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  feed_grid(a, 0);
+  a.poll(5000);  // nothing since t=0, so this raises SOURCE_STALE and latches the alarm
+  a.drain_events();
+
+  // Past 2^31 ms (~24.8 days) from the last publication. The source is still dead.
+  a.poll((UINT64_C(1) << 31) + 5000);
+  std::map<std::string, uint32_t> ev;
+  for (const auto& d : a.drain_events())
+    ++ev[event_name(d.kind)];
+  EXPECT_EQ(0u, ev.count("SOURCE_RECOVERED")) << "got [" << describe(ev) << "]";
+
+  const auto st = a.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, (UINT64_C(1) << 31) + 5000);
+  EXPECT_TRUE(st.alarm_active);
+  EXPECT_EQ(tof_grid_assembler::source_state::STALE_NO_FRAMES, st.state);
+}
+
+TEST(TofGridAssembler, StillStaleBeyondThe32BitWrap)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  feed_grid(a, 0);
+  a.poll(5000);
+  a.drain_events();
+
+  // Past 2^32 ms (~49.7 days), and deliberately only 500 ms past it: truncated to 32 bits this
+  // instant is 500, which is INSIDE SOURCE_STALE_MS of the truncated last-publication time of 0,
+  // so a 32-bit clock reads the source as freshly published. Landing further past the wrap would
+  // leave the truncated difference above the threshold and the test would pass on a broken
+  // implementation.
+  const uint64_t past_wrap = (UINT64_C(1) << 32) + 500;
+  a.poll(past_wrap);
+  std::map<std::string, uint32_t> ev;
+  for (const auto& d : a.drain_events())
+    ++ev[event_name(d.kind)];
+  EXPECT_EQ(0u, ev.count("SOURCE_RECOVERED")) << "got [" << describe(ev) << "]";
+
+  const auto st = a.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, past_wrap);
+  EXPECT_TRUE(st.alarm_active);
+  EXPECT_EQ(tof_grid_assembler::source_state::STALE_NO_FRAMES, st.state);
+  EXPECT_GT(st.since_last_publish_ms, UINT64_C(1) << 32) << "the age itself must not wrap either";
+}
+
+// An alarm is cleared by evidence of recovery, and the only such evidence is a grid that
+// actually completed. Frames arriving without completing a grid are the STALE_NOT_COMPLETING
+// case, which is a fault, not a recovery.
+TEST(TofGridAssembler, OnlyACompletedGridClearsTheAlarm)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  feed_grid(a, 0);
+  a.poll(5000);
+  a.drain_events();
+
+  // Checked before any poll(): a poll would re-raise the alarm on a still-stale source and hide
+  // an implementation that had cleared it on frame arrival.
+  feed_chunks_only(a, 5100);
+  EXPECT_TRUE(a.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, 5100).alarm_active) << "frames that do not "
+                                                                                             "complete a grid are the "
+                                                                                             "STALE_NOT_COMPLETING "
+                                                                                             "fault, not a recovery";
+
+  a.poll(5200);
+  std::map<std::string, uint32_t> after_chunks;
+  for (const auto& d : a.drain_events())
+    ++after_chunks[event_name(d.kind)];
+  EXPECT_EQ(0u, after_chunks.count("SOURCE_RECOVERED")) << "got [" << describe(after_chunks) << "]";
+
+  // Nor does the passage of time alone.
+  a.poll(9000);
+  std::map<std::string, uint32_t> after_time;
+  for (const auto& d : a.drain_events())
+    ++after_time[event_name(d.kind)];
+  EXPECT_EQ(0u, after_time.count("SOURCE_RECOVERED")) << "got [" << describe(after_time) << "]";
+  EXPECT_TRUE(a.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, 9000).alarm_active);
+
+  // The "only" is not vacuous: RecoveryIsReportedAtPublicationNotAtTheNextPoll and
+  // RecoveryFromStaleIsAlsoReportedAtPublication cover the positive half, where a grid that really
+  // completes does clear the alarm. This test owns the negative half.
+}
+
+// The grace is added to the budget rather than to the reference, so this boundary is the one
+// place the restructured comparison could have shifted by a millisecond.
+TEST(TofGridAssembler, StartupGraceBoundaryIsUnchanged)
+{
+  using st_t = tof_grid_assembler::source_state;
+  constexpr uint64_t budget = tof_grid_assembler::STARTUP_GRACE_MS + tof_grid_assembler::SOURCE_STALE_MS;
+
+  // A source that has produced frames but never a grid is measured from the startup time.
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  feed_chunks_only(a, 10);
+  EXPECT_EQ(st_t::HEALTHY, a.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, budget).state) << "the last "
+                                                                                                     "millisecond "
+                                                                                                     "inside the "
+                                                                                                     "budget is still "
+                                                                                                     "healthy";
+  EXPECT_NE(st_t::HEALTHY, a.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, budget + 1).state) << "one "
+                                                                                                         "millisecond "
+                                                                                                         "past it is "
+                                                                                                         "not";
+
+  // And the budget is measured from the startup time given to the constructor, not from zero.
+  constexpr uint64_t late_start = 1'000'000;
+  tof_grid_assembler b(DATA_ID, HEALTH_ID, late_start);
+  feed_chunks_only(b, late_start + 10);
+  EXPECT_EQ(st_t::HEALTHY, b.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, late_start + budget).state);
+  EXPECT_NE(st_t::HEALTHY, b.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, late_start + budget + 1).state);
 }
 
 int main(int argc, char** argv)

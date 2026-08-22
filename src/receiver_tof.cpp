@@ -23,8 +23,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
+#include <cinttypes>
 #include <cstring>
+#include <iostream>
 #include <optional>
 
 #include "std_msgs/Float32MultiArray.h"
@@ -283,12 +284,12 @@ const char* event_text(lexxhard::tof_grid_assembler::event e)
 
 }  // namespace
 
-void receiver_tof::configure_can(uint32_t data_can_id, uint32_t health_can_id, uint32_t now_ms)
+void receiver_tof::configure_can(uint32_t data_can_id, uint32_t health_can_id, uint64_t now_ms)
 {
   assembler = std::make_unique<lexxhard::tof_grid_assembler>(data_can_id, health_can_id, now_ms);
 }
 
-void receiver_tof::handle_can(const can_frame& frame, uint32_t now_ms)
+void receiver_tof::handle_can(const can_frame& frame, uint64_t now_ms)
 {
   if (!assembler)
     return;
@@ -297,7 +298,7 @@ void receiver_tof::handle_can(const can_frame& frame, uint32_t now_ms)
   drain_diagnostics();
 }
 
-void receiver_tof::poll(uint32_t now_ms)
+void receiver_tof::poll(uint64_t now_ms)
 {
   if (!assembler)
     return;
@@ -352,7 +353,7 @@ void receiver_tof::drain_diagnostics()
   }
 }
 
-void receiver_tof::report_persistent_state(uint32_t now_ms)
+void receiver_tof::report_persistent_state(uint64_t now_ms)
 {
   using asm_t = lexxhard::tof_grid_assembler;
 
@@ -374,7 +375,8 @@ void receiver_tof::report_persistent_state(uint32_t now_ms)
     }
     if (!state_throttle.should_report(src, now_ms))
       continue;
-    ROS_ERROR("ToF %s: still %s (%u ms since last frame, %u ms since last grid)", asm_t::source_name(src),
-              asm_t::state_name(st.state), st.since_last_frame_ms, st.ever_published ? st.since_last_publish_ms : 0u);
+    ROS_ERROR("ToF %s: still %s (%" PRIu64 " ms since last frame, %" PRIu64 " ms since last grid)",
+              asm_t::source_name(src), asm_t::state_name(st.state), st.since_last_frame_ms,
+              st.ever_published ? st.since_last_publish_ms : UINT64_C(0));
   }
 }
