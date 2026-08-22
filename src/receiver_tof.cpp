@@ -295,7 +295,7 @@ void receiver_tof::handle_can(const can_frame& frame, uint64_t now_ms)
     return;
   if (auto g = assembler->consume(frame.can_id, frame.can_dlc, frame.data, now_ms))
     publish_grid(*g);
-  drain_diagnostics();
+  drain_diagnostics(now_ms);
 }
 
 void receiver_tof::poll(uint64_t now_ms)
@@ -303,7 +303,7 @@ void receiver_tof::poll(uint64_t now_ms)
   if (!assembler)
     return;
   assembler->poll(now_ms);
-  drain_diagnostics();
+  drain_diagnostics(now_ms);
   report_persistent_state(now_ms);
 }
 
@@ -328,10 +328,12 @@ void receiver_tof::publish_grid(const lexxhard::tof_grid_assembler::grid& g)
     pub_low_object_left.publish(msg);
 }
 
-void receiver_tof::drain_diagnostics()
+void receiver_tof::drain_diagnostics(uint64_t now_ms)
 {
   using asm_t = lexxhard::tof_grid_assembler;
   using ev = asm_t::event;
+
+  report_health_reports(now_ms);
 
   for (const auto& d : assembler->drain_events())
   {
@@ -348,8 +350,35 @@ void receiver_tof::drain_diagnostics()
       ROS_ERROR("ToF %s: %s (%s)", who, asm_t::state_name(d.state), text);
     else if (d.kind == ev::SOURCE_RECOVERED)
       ROS_INFO("ToF %s: recovered", who);
-    else
-      ROS_WARN_THROTTLE(5.0, "ToF %s: %s", who, text);
+    else if (report_throttle_.should_report(asm_t::report_slot(d.kind, d.source), now_ms))
+      ROS_WARN("ToF %s: %s", who, text);
+  }
+}
+
+// The other half of "diagnostic and do not gate". The gate is untouched: the assembler queues these
+// only after a grid has been accepted, and this formats what it queued so the condition is
+// observable instead of being parsed and discarded.
+//
+// Every line carries the chain context, because "chain length differs from the configured
+// expectation" without the number of boards the sensor saw, or where it sits, sends an operator
+// looking with no starting point.
+void receiver_tof::report_health_reports(uint64_t now_ms)
+{
+  using asm_t = lexxhard::tof_grid_assembler;
+  using note = asm_t::health_note;
+
+  for (const auto& r : assembler->drain_health_reports())
+  {
+    for (uint8_t i = 0; i < static_cast<uint8_t>(note::HEALTH_NOTE_COUNT); ++i)
+    {
+      const note n = static_cast<note>(i);
+      if ((r.notes & static_cast<uint8_t>(1u << i)) == 0)
+        continue;
+      if (!report_throttle_.should_report(asm_t::report_slot(n, r.source), now_ms))
+        continue;
+      ROS_WARN("ToF %s: %s (chain position %u of %u boards detected, last error 0x%02x)", asm_t::source_name(r.source),
+               asm_t::health_note_text(n), r.chain_position, r.boards_detected, r.last_error);
+    }
   }
 }
 

@@ -31,6 +31,8 @@
 #include <gtest/gtest.h>
 
 #include <map>
+#include <set>
+#include <stdexcept>
 #include <string>
 
 #include "can_ids.hpp"
@@ -109,6 +111,7 @@ struct replay_result
   uint32_t publish_count{ 0 };
   std::vector<tof_grid_assembler::grid> grids;
   std::map<std::string, uint32_t> events;
+  std::vector<tof_grid_assembler::health_report> health_reports;
 };
 
 replay_result replay(const tof_contract::Scenario& sc, tof_grid_assembler& asm_)
@@ -134,6 +137,8 @@ replay_result replay(const tof_contract::Scenario& sc, tof_grid_assembler& asm_)
     // left behind would be counted again on the next iteration and break the multiset.
     for (const auto& d : asm_.drain_events())
       ++r.events[event_name(d.kind)];
+    for (const auto& h : asm_.drain_health_reports())
+      r.health_reports.push_back(h);
   }
   return r;
 }
@@ -146,6 +151,67 @@ void feed_chunks_only(tof_grid_assembler& a, uint64_t t)
   for (size_t k = 0; k < tof_grid_assembler::CHUNKS; ++k)
     a.consume(DATA_ID, 8, gv.data_frames[k].bytes, t);
   a.drain_events();
+}
+
+const tof_contract::Scenario& scenario(const char* name)
+{
+  for (size_t i = 0; i < tof_contract::kScenarioCount; ++i)
+  {
+    if (std::string(tof_contract::kScenarios[i].name) == name)
+      return tof_contract::kScenarios[i];
+  }
+  throw std::runtime_error(std::string("no such scenario: ") + name);
+}
+
+std::string note_name(tof_grid_assembler::health_note n)
+{
+  switch (n)
+  {
+    case tof_grid_assembler::health_note::I2C_ERROR_RECOVERED:
+      return "I2C_ERROR_RECOVERED";
+    case tof_grid_assembler::health_note::DATA_READY_TIMEOUT_RECOVERED:
+      return "DATA_READY_TIMEOUT_RECOVERED";
+    case tof_grid_assembler::health_note::CHAIN_LENGTH_MISMATCH:
+      return "CHAIN_LENGTH_MISMATCH";
+    case tof_grid_assembler::health_note::PEER_ENUMERATION_FAILED:
+      return "PEER_ENUMERATION_FAILED";
+    case tof_grid_assembler::health_note::LAST_ERROR_NONZERO:
+      return "LAST_ERROR_NONZERO";
+    case tof_grid_assembler::health_note::HEALTH_NOTE_COUNT:
+      break;
+  }
+  return "?";
+}
+
+std::set<std::string> notes_of(const tof_grid_assembler::health_info& h)
+{
+  const uint8_t bits = tof_grid_assembler::health_notes(h);
+  std::set<std::string> out;
+  for (uint8_t i = 0; i < static_cast<uint8_t>(tof_grid_assembler::health_note::HEALTH_NOTE_COUNT); ++i)
+  {
+    if (bits & static_cast<uint8_t>(1u << i))
+      out.insert(note_name(static_cast<tof_grid_assembler::health_note>(i)));
+  }
+  return out;
+}
+
+std::set<std::string> notes_of_mask(uint8_t bits)
+{
+  std::set<std::string> out;
+  for (uint8_t i = 0; i < static_cast<uint8_t>(tof_grid_assembler::health_note::HEALTH_NOTE_COUNT); ++i)
+  {
+    if (bits & static_cast<uint8_t>(1u << i))
+      out.insert(note_name(static_cast<tof_grid_assembler::health_note>(i)));
+  }
+  return out;
+}
+
+std::string describe(const std::set<std::string>& v)
+{
+  std::string out;
+  for (const auto& e : v)
+    out += e + " ";
+  return out.empty() ? "(none)" : out;
 }
 
 std::string describe(const std::map<std::string, uint32_t>& m)
@@ -766,6 +832,179 @@ TEST(TofGridAssembler, StartupGraceBoundaryIsUnchanged)
   feed_chunks_only(b, late_start + 10);
   EXPECT_EQ(st_t::HEALTHY, b.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, late_start + budget).state);
   EXPECT_NE(st_t::HEALTHY, b.source_status(tof_grid_assembler::SOURCE_FRONT_RIGHT, late_start + budget + 1).state);
+}
+
+// ---------------------------------------------------------------- C2: report throttle keying --
+//
+// The defect was a single ROS_WARN_THROTTLE inside the drain loop. The macro keeps its window at
+// the expansion site, so every source and every reason shared one 5 s window and the first
+// benign event of a window silenced the rest.
+
+TEST(ReportSlots, EveryReasonAndSourcePairHasItsOwnSlot)
+{
+  using asm_t = tof_grid_assembler;
+  std::set<size_t> seen;
+  // Sources 0, 1, and SOURCE_COUNT for a diagnostic that cannot be attributed to either.
+  for (uint8_t src = 0; src <= asm_t::SOURCE_COUNT; ++src)
+  {
+    for (uint8_t e = 0; e < static_cast<uint8_t>(asm_t::event::EVENT_COUNT); ++e)
+    {
+      const size_t slot = asm_t::report_slot(static_cast<asm_t::event>(e), src);
+      EXPECT_LT(slot, asm_t::REPORT_SLOTS);
+      EXPECT_TRUE(seen.insert(slot).second) << "collision at event " << int(e) << " source " << int(src);
+    }
+    for (uint8_t n = 0; n < static_cast<uint8_t>(asm_t::health_note::HEALTH_NOTE_COUNT); ++n)
+    {
+      const size_t slot = asm_t::report_slot(static_cast<asm_t::health_note>(n), src);
+      EXPECT_LT(slot, asm_t::REPORT_SLOTS);
+      EXPECT_TRUE(seen.insert(slot).second) << "collision at note " << int(n) << " source " << int(src);
+    }
+  }
+  EXPECT_EQ(asm_t::REPORT_SLOTS, seen.size()) << "the slot space must be exactly covered, not merely fit";
+}
+
+// An out-of-range source shares one slot per reason rather than borrowing source 0's, so a
+// malformed frame from nowhere cannot silence a real fault on a real sensor.
+TEST(ReportSlots, UnattributableDiagnosticsDoNotBorrowSourceZero)
+{
+  using asm_t = tof_grid_assembler;
+  const size_t unattributed = asm_t::report_slot(asm_t::event::MALFORMED_HEADER, asm_t::SOURCE_COUNT);
+  EXPECT_NE(asm_t::report_slot(asm_t::event::MALFORMED_HEADER, asm_t::SOURCE_FRONT_RIGHT), unattributed);
+  EXPECT_NE(asm_t::report_slot(asm_t::event::MALFORMED_HEADER, asm_t::SOURCE_FRONT_LEFT), unattributed);
+  // Anything past the table collapses onto the same unattributed slot rather than aliasing.
+  EXPECT_EQ(unattributed, asm_t::report_slot(asm_t::event::MALFORMED_HEADER, 200));
+}
+
+TEST(ReportSlots, ABenignEventDoesNotSuppressARealOneOnTheSameSource)
+{
+  using asm_t = tof_grid_assembler;
+  lexxhard::report_throttle<asm_t::REPORT_SLOTS> th{ 5000 };
+  const uint8_t src = asm_t::SOURCE_FRONT_RIGHT;
+
+  // The firmware retransmits, so this one can be present in steady state and used to take the
+  // whole window.
+  EXPECT_TRUE(th.should_report(asm_t::report_slot(asm_t::event::DUPLICATE_CHUNK_IDENTICAL, src), 1000));
+  // Same source, same 5 s window: both of these mean every grid is being discarded.
+  EXPECT_TRUE(th.should_report(asm_t::report_slot(asm_t::event::HEALTH_COUNT_MISMATCH, src), 1001));
+  EXPECT_TRUE(th.should_report(asm_t::report_slot(asm_t::event::CONFLICTING_CHUNK, src), 1002));
+}
+
+TEST(ReportSlots, TheTwoSourcesDoNotSuppressEachOther)
+{
+  using asm_t = tof_grid_assembler;
+  lexxhard::report_throttle<asm_t::REPORT_SLOTS> th{ 5000 };
+  const auto e = asm_t::event::CONFLICTING_CHUNK;
+  EXPECT_TRUE(th.should_report(asm_t::report_slot(e, asm_t::SOURCE_FRONT_RIGHT), 1000));
+  EXPECT_TRUE(th.should_report(asm_t::report_slot(e, asm_t::SOURCE_FRONT_LEFT), 1000));
+}
+
+TEST(ReportSlots, TheSamePairIsSuppressedInsideTheWindowAndReportsAtTheBoundary)
+{
+  using asm_t = tof_grid_assembler;
+  lexxhard::report_throttle<asm_t::REPORT_SLOTS> th{ 5000 };
+  const size_t slot = asm_t::report_slot(asm_t::event::CONFLICTING_CHUNK, asm_t::SOURCE_FRONT_RIGHT);
+  EXPECT_TRUE(th.should_report(slot, 1000));
+  EXPECT_FALSE(th.should_report(slot, 1000 + 4999));
+  EXPECT_TRUE(th.should_report(slot, 1000 + 5000)) << "the boundary itself is due";
+}
+
+// ------------------------------------------------- C5: health diagnostics, reported not gated --
+
+TEST(HealthNotes, ClassifiesEachFlagAndTheLastErrorByte)
+{
+  using note = tof_grid_assembler::health_note;
+  tof_grid_assembler::health_info h;
+  EXPECT_TRUE(notes_of(h).empty()) << "a clean health frame carries no notes";
+
+  h.flags = 0x01;
+  EXPECT_EQ(std::set<std::string>{ note_name(note::I2C_ERROR_RECOVERED) }, notes_of(h));
+  h.flags = 0x02;
+  EXPECT_EQ(std::set<std::string>{ note_name(note::DATA_READY_TIMEOUT_RECOVERED) }, notes_of(h));
+  h.flags = 0x04;
+  EXPECT_EQ(std::set<std::string>{ note_name(note::CHAIN_LENGTH_MISMATCH) }, notes_of(h));
+  h.flags = 0x08;
+  EXPECT_EQ(std::set<std::string>{ note_name(note::PEER_ENUMERATION_FAILED) }, notes_of(h));
+
+  h = tof_grid_assembler::health_info{};
+  h.last_error = 0x42;
+  EXPECT_EQ(std::set<std::string>{ note_name(note::LAST_ERROR_NONZERO) }, notes_of(h));
+
+  // Reserved bits are stripped by parse_health, so they can never become a note.
+  h = tof_grid_assembler::health_info{};
+  h.flags = 0x0F;
+  EXPECT_EQ(4u, notes_of(h).size()) << "got [" << describe(notes_of(h)) << "]";
+}
+
+// The publish gate is deliberately unchanged: the contract states these fields do not gate,
+// because under the firmware transmit obligation a grid only exists after a complete successful
+// model-verified read. What must also be true is that the fact reaches diagnostics -- which is
+// what the scenario's own description demands.
+// Asserts on the QUEUED report, not on a classifier call against the grid. Checking
+// notes_of(grid.health) would pass even with the emission deleted, because it only re-runs the pure
+// function; the queue is the seam the receiver actually reads.
+TEST(HealthNotes, RecoveredFlagsPublishAndAreStillEmitted)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  const auto r = replay(scenario("recovered_flags_do_not_gate"), a);
+
+  ASSERT_EQ(1u, r.publish_count) << "the grid must still publish; these flags do not gate";
+  ASSERT_EQ(1u, r.health_reports.size()) << "parsed and then discarded is not diagnostic";
+  const auto notes = notes_of_mask(r.health_reports.front().notes);
+  EXPECT_EQ(1u, notes.count(note_name(tof_grid_assembler::health_note::I2C_ERROR_RECOVERED)))
+      << "got [" << describe(notes) << "]";
+  EXPECT_EQ(1u, notes.count(note_name(tof_grid_assembler::health_note::CHAIN_LENGTH_MISMATCH)))
+      << "got [" << describe(notes) << "]";
+}
+
+// chain_position and boards_detected had no consumer whatsoever before this: parsed, normalised,
+// compared for duplicate detection, then read by nothing. They are context on the report rather
+// than notes of their own, and this is what proves they survive the trip.
+TEST(HealthNotes, TheReportCarriesTheChainContextAndTheSource)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  const auto r = replay(scenario("recovered_flags_do_not_gate"), a);
+
+  ASSERT_EQ(1u, r.health_reports.size());
+  const auto& h = r.health_reports.front();
+  const auto& g = r.grids.front();
+  EXPECT_EQ(g.source, h.source) << "a report nobody can attribute is not actionable";
+  EXPECT_EQ(g.health.chain_position, h.chain_position);
+  EXPECT_EQ(g.health.boards_detected, h.boards_detected);
+  EXPECT_EQ(g.health.last_error, h.last_error);
+}
+
+// A clean health frame must queue nothing, or the log fills with reports that say nothing and the
+// throttle spends its windows on them.
+TEST(HealthNotes, ACleanHealthFrameQueuesNoReport)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  const auto events = feed_grid(a, 0);
+  ASSERT_EQ(1u, events.count("GRID_PUBLISHED")) << "got [" << describe(events) << "]";
+  EXPECT_TRUE(a.drain_health_reports().empty());
+}
+
+// Drained exactly once, like the event queue. Left in place they would be re-reported on every ROS
+// spin, which is how one condition becomes a log flood.
+TEST(HealthNotes, ReportsAreDrainedOnce)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  const auto r = replay(scenario("recovered_flags_do_not_gate"), a);
+  ASSERT_EQ(1u, r.health_reports.size());
+  EXPECT_TRUE(a.drain_health_reports().empty());
+}
+
+TEST(HealthNotes, PeerEnumerationFailureIsEmitted)
+{
+  tof_grid_assembler a(DATA_ID, HEALTH_ID, 0);
+  const auto r = replay(scenario("peer_enumeration_failure_reported"), a);
+
+  ASSERT_EQ(1u, r.publish_count) << "the surviving sensor still publishes";
+  ASSERT_EQ(1u, r.health_reports.size());
+  const auto notes = notes_of_mask(r.health_reports.front().notes);
+  EXPECT_EQ(1u, notes.count(note_name(tof_grid_assembler::health_note::PEER_ENUMERATION_FAILED)))
+      << "got [" << describe(notes)
+      << "] -- this flag is the only way a sensor that emits nothing "
+         "at all becomes visible";
 }
 
 int main(int argc, char** argv)

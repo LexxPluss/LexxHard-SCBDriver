@@ -60,6 +60,26 @@ tof_grid_assembler::health_info tof_grid_assembler::parse_health(const uint8_t* 
   return h;
 }
 
+// Bit positions are the wire contract's, not ours: status flag bits 0-3 in byte 3, then the
+// last error code in byte 5. Reserved bits were already dropped by parse_health, so nothing here
+// can classify a field whose meaning is undefined.
+uint8_t tof_grid_assembler::health_notes(const health_info& h)
+{
+  uint8_t notes = 0;
+  const auto set = [&notes](health_note n) { notes |= static_cast<uint8_t>(1u << static_cast<uint8_t>(n)); };
+  if (h.flags & 0x01)
+    set(health_note::I2C_ERROR_RECOVERED);
+  if (h.flags & 0x02)
+    set(health_note::DATA_READY_TIMEOUT_RECOVERED);
+  if (h.flags & 0x04)
+    set(health_note::CHAIN_LENGTH_MISMATCH);
+  if (h.flags & 0x08)
+    set(health_note::PEER_ENUMERATION_FAILED);
+  if (h.last_error != 0)
+    set(health_note::LAST_ERROR_NONZERO);
+  return notes;
+}
+
 bool tof_grid_assembler::normalised_equal(const health_info& a, const health_info& b)
 {
   // Comparing the eight raw bytes instead would, as soon as a firmware started populating
@@ -144,6 +164,15 @@ std::optional<tof_grid_assembler::grid> tof_grid_assembler::try_complete(uint8_t
   }
 
   emit(event::GRID_PUBLISHED, source, source_state::HEALTHY);
+
+  // Queued after the grid has already been accepted, so it cannot affect the decision. Only when
+  // there is something to say: a clean health frame produces no report.
+  if (const uint8_t notes = health_notes(g.health); notes != 0)
+  {
+    health_reports_.push_back(
+        health_report{ source, notes, g.health.chain_position, g.health.boards_detected, g.health.last_error });
+  }
+
   retire(source);
   return g;
 }

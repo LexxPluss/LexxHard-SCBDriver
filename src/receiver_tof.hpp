@@ -66,7 +66,8 @@ public:
 
 private:
   void publish_grid(const lexxhard::tof_grid_assembler::grid& g);
-  void drain_diagnostics();
+  void drain_diagnostics(uint64_t now_ms);
+  void report_health_reports(uint64_t now_ms);
   void report_persistent_state(uint64_t now_ms);
 
   static constexpr int queue_size{ 10 };
@@ -78,4 +79,8 @@ private:
   // Not ROS_*_THROTTLE: see tof_report_throttle.hpp for why one call site inside a loop
   // over the sources silently starves every source but the first.
   lexxhard::report_throttle<lexxhard::tof_grid_assembler::SOURCE_COUNT> state_throttle{ 5000 };
+  // Keyed by (reason, source), so a benign duplicate cannot swallow the first conflict or count
+  // mismatch of the same window, and the two sensors never suppress each other. Covers both the
+  // assembler's events and the health frame's self-reported notes; see report_slot().
+  lexxhard::report_throttle<lexxhard::tof_grid_assembler::REPORT_SLOTS> report_throttle_{ 5000 };
 };
