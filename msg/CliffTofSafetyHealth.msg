@@ -30,17 +30,35 @@
 # CONSUMER CONTRACT
 #   - The cliff stop may be released ONLY while readiness == READINESS_READY.
 #     NOT_READY, FAULT, an unknown readiness value, and no fresh message at all
-#     must all keep the robot stopped. An all-zero or default-constructed message
-#     is NOT_READY, so a consumer that fails to receive anything fails safe.
-#   - reason_mask MUST NOT take part in the safety decision. It exists so the
-#     reason can be shown, not so a consumer can rebuild the readiness rule.
-#     Re-deriving readiness downstream would create a second, diverging copy of
-#     the criteria that live in the CAN wire contract.
+#     must all keep the robot stopped.
+#   - TWO DIFFERENT PROTECTIONS, AND THEY MUST NOT BE CONFLATED. A default
+#     constructed message guarantees exactly one thing: readiness is
+#     READINESS_NOT_READY, because that constant is 0. That protects the case
+#     "a message arrived and the publisher failed to fill a field in".
+#     It does NOT protect "no message arrived". A consumer that receives nothing
+#     does not receive a zero-filled message; it receives nothing, and no default
+#     value in this file can help it. Absence is detectable ONLY by a consumer
+#     watchdog on its own monotonic clock. An earlier version of this contract
+#     joined the two in one sentence, which invited an implementer to treat the
+#     zero defaults as the safety net for both.
+#   - reason_mask and EVERY *_mask field MUST NOT take part in the safety
+#     decision. They exist so the reason can be shown, not so a consumer can
+#     rebuild the readiness rule. Re-deriving readiness downstream would create a
+#     second, diverging copy of the criteria that live in the CAN wire contract.
 #   - Freshness is measured on the CONSUMER's monotonic clock against the arrival
 #     of a NEW heartbeat_seq. A repeated heartbeat_seq must not refresh it, and
 #     header.stamp must not be used for it: the stamp is for observation and log
 #     correlation only. NEW means "differs from the previous value", never a
 #     numeric increase, so the 32-bit wrap is an ordinary new snapshot.
+#   - THE BOUND IS NOT DEFINED HERE, AND DELIBERATELY HAS NO DEFAULT. A future
+#     consumer must obtain cliff_health_timeout_sec from approved safety
+#     configuration, and must REFUSE TO START if it is missing, not positive, or
+#     not finite. No value is carried in this message and none is compiled in,
+#     because a number invented in a message definition or a unit test would
+#     become the de facto safety limit by being the only one anybody could find.
+#     A consumer that silently picked its own bound would not violate this
+#     contract while failing open for exactly that long, which is the hole this
+#     paragraph exists to close.
 #   - There is deliberately no DEGRADED readiness. A source that is temporarily
 #     short of a sample is still READY, and says so through
 #     degraded_source_mask. Splitting readiness further would invite a consumer
@@ -100,6 +118,12 @@ uint8 CHAIN_FLAG_CYCLE_VALID = 8
 uint8 SOURCE_COUNT = 4
 uint8 CHAIN_POSITION_NONE = 255
 
+# The age sentinel, named for the same reason CHAIN_POSITION_NONE is: an age field
+# cannot be unset, and its zero default reads as "observed this instant", which is
+# the exact opposite of never observed. A publisher MUST write this value rather
+# than leaving the default.
+float64 AGE_NEVER_OBSERVED = -1.0
+
 Header header
 
 # Increments on every new snapshot this node publishes, wrapping at 2^32. A
@@ -113,9 +137,14 @@ uint8 readiness
 uint32 reason_mask
 
 # Mirrored from the newest accepted CAN health frame. While can_health_seen is
-# false the fields below carry no meaning: a ROS message field cannot be unset, so
-# they hold default zeros, and a consumer must not interpret those zeros as
-# observations. Read them only when can_health_seen is true.
+# false these fields AND health_age carry no meaning: a ROS message field cannot be
+# unset, so they hold default zeros, and a consumer must not interpret those zeros
+# as observations. Read them only when can_health_seen is true.
+#
+# failing_chain_position is the sharpest case. Its default 0 is neither a valid
+# position (1-6) nor CHAIN_POSITION_NONE, so with can_health_seen false it means
+# nothing at all -- not "no position implicated". A publisher MUST write
+# CHAIN_POSITION_NONE when no position is implicated.
 bool can_health_seen
 uint8 protocol_version
 uint8 mapping_state
@@ -130,10 +159,24 @@ uint8 sensor_fault_mask
 uint8 failing_chain_position
 
 # Computed by the driver, indexed by source_id in bits 0-3.
+#   seen      a measurement has EVER been accepted from this source, so its
+#             measurement_age is meaningful. This is the guard for that array, the
+#             way can_health_seen guards the mirrored fields: read
+#             measurement_age[i] only when bit i is set here. A source whose bit is
+#             clear carries AGE_NEVER_OBSERVED.
 #   fresh     accepted a measurement from a new cycle within its age bound
 #   degraded  short of a sample in the newest cycle but still inside the bound
 #   stale     exceeded the age bound
 #   miss      reached the consecutive missed-cycle fault count
+#
+# NOTE ON POLARITY. seen, fresh, enumerated_mask and model_verified_mask are
+# POSITIVE: a bit must be set to claim something good, so an all-zero message
+# claims nothing. degraded, stale, miss and sensor_fault_mask are NEGATIVE: a bit
+# is set only on a fault, so an all-zero message reads as "no faults". That mixture
+# is inherent -- a fault mask has to be able to say "no faults" -- and it is safe
+# only because none of these fields may take part in the safety decision. The
+# decision is readiness, whose zero is NOT_READY.
+uint8 measurement_seen_mask
 uint8 fresh_source_mask
 uint8 degraded_source_mask
 uint8 stale_source_mask
@@ -143,7 +186,11 @@ uint8 sample_miss_fault_mask
 # only: the safety timeout is the consumer's own monotonic clock against a new
 # heartbeat_seq, never these fields. Seconds rather than a duration type because
 # nothing here needs duration arithmetic and a plain double is what a log or a
-# plot wants. A negative value means never observed.
+# plot wants.
+#
+# Never observed is AGE_NEVER_OBSERVED, not zero, and it is guarded: read
+# health_age only when can_health_seen is true, and measurement_age[i] only when
+# bit i of measurement_seen_mask is set.
 float64 health_age
 float64[4] measurement_age
 uint16[4] consecutive_missed_cycles

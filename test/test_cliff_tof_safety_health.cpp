@@ -261,6 +261,86 @@ TEST(CliffTofSafetyHealthDefinition, ChainPositionNoneIsOutsideTheValidRange)
 {
   // Positions are 1-6 over the whole six-board chain; 255 means none.
   EXPECT_EQ(Health::CHAIN_POSITION_NONE, 255);
+  // And its zero default is neither, which is why can_health_seen has to guard it: with the
+  // guard false, 0 means nothing at all rather than "no position implicated".
+  const Health msg;
+  EXPECT_EQ(msg.failing_chain_position, 0);
+  EXPECT_NE(msg.failing_chain_position, Health::CHAIN_POSITION_NONE);
+  EXPECT_FALSE(msg.can_health_seen);
+}
+
+// An age field cannot be unset, and 0.0 reads as "observed this instant" -- the exact opposite
+// of never observed. The sentinel is therefore a named constant, and negative, so it can never
+// be confused with a real age.
+TEST(CliffTofSafetyHealthDefinition, TheAgeSentinelIsNamedAndCannotCollideWithARealAge)
+{
+  EXPECT_DOUBLE_EQ(Health::AGE_NEVER_OBSERVED, -1.0);
+  EXPECT_LT(Health::AGE_NEVER_OBSERVED, 0.0);
+}
+
+// The zero default of measurement_age says "just now", so the array needs the same kind of guard
+// can_health_seen gives the mirrored fields. Without it the age block sat outside every guard in
+// the file.
+TEST(CliffTofSafetyHealthDefinition, EveryAgeFieldIsGuarded)
+{
+  const Health msg;
+  EXPECT_FALSE(msg.can_health_seen) << "guards health_age";
+  EXPECT_EQ(msg.measurement_seen_mask, 0u) << "guards measurement_age, bit per source";
+
+  const std::string text = read_file(std::string(PACKAGE_SOURCE_DIR) + "/msg/CliffTofSafetyHealth.msg");
+  EXPECT_NE(text.find("float64 AGE_NEVER_OBSERVED"), std::string::npos);
+  EXPECT_NE(text.find("uint8 measurement_seen_mask"), std::string::npos);
+  // The guard must be documented as covering health_age, not just the mirror block.
+  EXPECT_NE(text.find("these fields AND health_age carry no meaning"), std::string::npos);
+}
+
+// The masks are not all one polarity and cannot be: a fault mask has to be able to say "no
+// faults", which is zero. That is only safe while no mask takes part in the decision, so the
+// contract has to say so explicitly and the message has to keep readiness as the one
+// safety-bearing field.
+TEST(CliffTofSafetyHealthDefinition, MaskPolarityIsMixedAndDocumentedAsNonDecisional)
+{
+  const std::string text = read_file(std::string(PACKAGE_SOURCE_DIR) + "/msg/CliffTofSafetyHealth.msg");
+  EXPECT_NE(text.find("EVERY *_mask field MUST NOT take part in the safety"), std::string::npos);
+  EXPECT_NE(text.find("NOTE ON POLARITY"), std::string::npos);
+  // The one field whose zero is load-bearing.
+  const Health msg;
+  EXPECT_EQ(msg.readiness, Health::READINESS_NOT_READY);
+}
+
+// The two protections the old wording ran together. A zero-filled message protects "arrived but
+// unfilled"; nothing in this file protects "never arrived".
+TEST(CliffTofSafetyHealthDefinition, DefaultsProtectAnUnfilledMessageNotAMissingOne)
+{
+  const std::string text = read_file(std::string(PACKAGE_SOURCE_DIR) + "/msg/CliffTofSafetyHealth.msg");
+  EXPECT_NE(text.find("TWO DIFFERENT PROTECTIONS"), std::string::npos);
+  EXPECT_NE(text.find("It does NOT protect \"no message arrived\""), std::string::npos);
+  EXPECT_NE(text.find("Absence is detectable ONLY by a consumer"), std::string::npos);
+  // The claim that used to be here must be gone, not merely softened.
+  EXPECT_EQ(text.find("so a consumer that fails to receive anything fails safe"), std::string::npos);
+}
+
+// The bound is a safety configuration value, not a number this repository gets to choose. The
+// test therefore INJECTS an arbitrary bound and checks the comparison either side of it; the
+// value below is a test fixture and must never be read as the product limit.
+TEST(CliffTofSafetyHealthDefinition, TheStalenessBoundIsInjectedNeverDefaulted)
+{
+  constexpr double injected_bound_sec = 0.25;  // arbitrary; NOT a specification
+
+  const auto stale = [](double since_new_heartbeat_sec, double bound_sec) {
+    return since_new_heartbeat_sec >= bound_sec;
+  };
+  EXPECT_FALSE(stale(injected_bound_sec - 0.01, injected_bound_sec));
+  EXPECT_TRUE(stale(injected_bound_sec, injected_bound_sec)) << "the bound itself is already stale";
+  EXPECT_TRUE(stale(injected_bound_sec + 0.01, injected_bound_sec));
+
+  // And no default may exist anywhere: neither a constant in the message nor a number in the
+  // contract text. A consumer must refuse to start without approved configuration.
+  const std::string text = read_file(std::string(PACKAGE_SOURCE_DIR) + "/msg/CliffTofSafetyHealth.msg");
+  EXPECT_EQ(text.find("REQUIRED_FRESHNESS_SEC"), std::string::npos) << "no invented limit";
+  EXPECT_NE(text.find("cliff_health_timeout_sec"), std::string::npos);
+  EXPECT_NE(text.find("DELIBERATELY HAS NO DEFAULT"), std::string::npos);
+  EXPECT_NE(text.find("REFUSE TO START"), std::string::npos);
 }
 
 // ---------------------------------------------------------------------------
