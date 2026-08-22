@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "can_ids.hpp"
+
 #include <array>
 
 #include "ros/ros.h"
@@ -42,7 +44,7 @@ private:
   void handle(const std_msgs::Bool::ConstPtr& msg);
   std::array<ros::Subscriber, 4> subs;
   can_frame frame{
-    .can_id{ 0x211 },
+    .can_id{ lexxhard::can_ids::GPIO_TX },
     .can_dlc{ 1 },
   };
   devif& dev;

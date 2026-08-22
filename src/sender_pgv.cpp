@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <linux/can.h>
 #include "devif.hpp"
 #include "sender_pgv.hpp"
@@ -35,7 +37,7 @@ sender_pgv::sender_pgv(ros::NodeHandle& n, devif& dev)
 void sender_pgv::handle(const std_msgs::UInt8::ConstPtr& msg) const
 {
   can_frame frame{
-    .can_id{ 0x203 },
+    .can_id{ lexxhard::can_ids::PGV_TX },
     .can_dlc{ 1 },
   };
   frame.data[0] = msg->data;

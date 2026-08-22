@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <linux/can.h>
 #include "devif.hpp"
 #include "sender_led.hpp"
@@ -38,7 +40,7 @@ void sender_led::handle(const std_msgs::String::ConstPtr& msg) const
   uint8_t pattern{ 0 }, rgb[3]{ 0, 0, 0 };
   decode(msg->data, pattern, count_per_minutes, rgb);
   can_frame frame{
-    .can_id{ 0x205 },
+    .can_id{ lexxhard::can_ids::LED_TX },
     .can_dlc{ 6 },
   };
   frame.data[0] = pattern;

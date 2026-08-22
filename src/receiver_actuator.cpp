@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include <linux/can.h>
 #include "std_msgs/Float32MultiArray.h"
 #include "std_msgs/Int32MultiArray.h"
@@ -60,15 +62,15 @@ int16_t receiver_actuator::adjust_encoder_count(size_t index, int16_t count) con
 
 void receiver_actuator::handle(const can_frame& frame) const
 {
-  if (frame.can_id == 0x209)
+  if (frame.can_id == lexxhard::can_ids::ACTUATOR_RX_0)
   {
     handle_encoder_count(frame);
   }
-  else if (frame.can_id == 0x20a)
+  else if (frame.can_id == lexxhard::can_ids::ACTUATOR_RX_1)
   {
     handle_current(frame);
   }
-  else if (frame.can_id == 0x213)
+  else if (frame.can_id == lexxhard::can_ids::ACTUATOR_RX_2)
   {
     handle_service_response(frame);
   }

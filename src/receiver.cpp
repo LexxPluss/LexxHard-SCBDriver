@@ -40,6 +40,10 @@
 #include "receiver_gpio.hpp"
 #include "receiver_tug_encoder.hpp"
 #include "receiver_tof.hpp"
+#include "can_ids.hpp"
+#include "tof_can_config.hpp"
+#include <chrono>
+#include <optional>
 
 namespace
 {
@@ -61,48 +65,55 @@ public:
   {
   }
 
-  void handle_can(const can_frame& frame)
+  void enable_tof_can(uint32_t data_id, uint32_t health_id, uint64_t now_ms)
   {
-    switch (frame.can_id)
+    tof_data_can_id = data_id;
+    tof_health_can_id = health_id;
+    tof.configure_can(data_id, health_id, now_ms);
+  }
+
+  void poll_tof(uint64_t now_ms)
+  {
+    tof.poll(now_ms);
+  }
+
+  void handle_can(const can_frame& frame, uint64_t now_ms)
+  {
+    if (tof_data_can_id && (frame.can_id == *tof_data_can_id || frame.can_id == *tof_health_can_id))
     {
-      case 0x100:
-      case 0x101:
-      case 0x103:
-      case 0x110:
-      case 0x111:
-      case 0x112:
-      case 0x113:
-      case 0x120:
-      case 0x130:
+      tof.handle_can(frame, now_ms);
+      return;
+    }
+    // Routed through the shared table rather than a switch on literals, so an
+    // identifier cannot be in the receive filter without also having a handler.
+    switch (lexxhard::can_ids::route(frame.can_id))
+    {
+      using owner = lexxhard::can_ids::owner;
+      case owner::bmu:
         bmu.handle(frame);
         break;
-      case 0x200:
-      case 0x201:
-      case 0x202:
+      case owner::pgv:
         pgv.handle(frame);
         break;
-      case 0x204:
+      case owner::uss:
         uss.handle(frame);
         break;
-      case 0x206:
-      case 0x207:
+      case owner::imu:
         imu.handle(frame);
         break;
-      case 0x209:
-      case 0x20a:
-      case 0x213:
+      case owner::actuator:
         actuator.handle(frame);
         break;
-      case 0x20c:
+      case owner::board:
         board.handle(frame);
         break;
-      case 0x20e:
+      case owner::dfu:
         dfu.handle(frame);
         break;
-      case 0x210:
+      case owner::tug_encoder:
         tug_encoder.handle(frame);
         break;
-      case 0x212:
+      case owner::gpio:
         gpio.handle(frame);
         break;
       default:
@@ -116,6 +127,8 @@ public:
   }
 
 private:
+  std::optional<uint32_t> tof_data_can_id;
+  std::optional<uint32_t> tof_health_can_id;
   receiver_actuator actuator;
   receiver_bmu bmu;
   receiver_board board;
@@ -128,6 +141,95 @@ private:
   receiver_tof tof;
 };
 
+// 64 bits, deliberately. Truncating steady_clock to 32 bits wrapped every 49.7 days and put
+// the whole ToF watchdog on a clock that could run backwards; every consumer of this value now
+// takes uint64_t so the wrap is gone rather than compensated for.
+uint64_t monotonic_ms()
+{
+  using namespace std::chrono;
+  return static_cast<uint64_t>(duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count());
+}
+
+tof_transport resolve_tof_transport(ros::NodeHandle& pn)
+{
+  std::string const mode = pn.param<std::string>("tof_transport", "");
+  bool const legacy_flag_present = pn.hasParam("use_tof_sensor_board");
+  bool const legacy_flag = pn.param<bool>("use_tof_sensor_board", false);
+
+  if (mode.empty())
+  {
+    if (legacy_flag_present)
+      ROS_WARN("use_tof_sensor_board is deprecated; set tof_transport to "
+               "disabled, legacy_uart or scb_can instead");
+    return legacy_flag ? tof_transport::legacy_uart : tof_transport::disabled;
+  }
+
+  tof_transport resolved;
+  if (mode == "disabled")
+    resolved = tof_transport::disabled;
+  else if (mode == "legacy_uart")
+    resolved = tof_transport::legacy_uart;
+  else if (mode == "scb_can")
+    resolved = tof_transport::scb_can;
+  else
+  {
+    ROS_FATAL("tof_transport must be disabled, legacy_uart or scb_can, got '%s'", mode.c_str());
+    std::exit(1);
+  }
+
+  // Both set and disagreeing is a configuration the operator cannot have meant either way.
+  if (legacy_flag_present && legacy_flag != (resolved == tof_transport::legacy_uart))
+  {
+    ROS_FATAL("tof_transport='%s' contradicts use_tof_sensor_board=%s; remove the "
+              "deprecated parameter",
+              mode.c_str(), legacy_flag ? "true" : "false");
+    std::exit(1);
+  }
+  return resolved;
+}
+
+// The identifiers are assigned (wire contract 2026-08-02f: 0x214/0x215, a
+// team-authorized self-assigned integration allocation) and are the defaults here.
+// The pair is atomic configuration: a launch file overrides both (bench) or neither
+// (production). Overriding only one would silently mix an override with a default —
+// refused, because the two ends of such a split configuration have never been tested
+// together and never will be.
+bool read_tof_can_ids(ros::NodeHandle& pn, uint32_t& data_id, uint32_t& health_id)
+{
+  bool const has_data = pn.hasParam("tof_can_data_id");
+  bool const has_health = pn.hasParam("tof_can_health_id");
+
+  int data_raw = lexxhard::TOF_GRID_DATA_ID;
+  int health_raw = lexxhard::TOF_GRID_HEALTH_ID;
+  bool data_parsed = true, health_parsed = true;
+  if (has_data && has_health)
+  {
+    // getParam returns false for a parameter of the wrong type and leaves the output
+    // untouched; ignoring that would silently keep the default and recreate exactly
+    // the half-override the pair check below forbids.
+    data_parsed = pn.getParam("tof_can_data_id", data_raw);
+    health_parsed = pn.getParam("tof_can_health_id", health_raw);
+  }
+
+  if (std::string const reason = lexxhard::check_tof_id_param_pair(has_data, has_health, data_parsed, health_parsed);
+      !reason.empty())
+  {
+    ROS_FATAL("%s", reason.c_str());
+    return false;
+  }
+
+  lexxhard::tof_can_ids ids;
+  std::string const reason = lexxhard::validate_tof_can_ids(data_raw, health_raw, ids);
+  if (!reason.empty())
+  {
+    ROS_FATAL("%s", reason.c_str());
+    return false;
+  }
+  data_id = ids.data_id;
+  health_id = ids.health_id;
+  return true;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -136,24 +238,48 @@ int main(int argc, char* argv[])
   ros::NodeHandle n;
   ros::NodeHandle pn("~");
 
-  bool const use_tof_sensor_board = pn.param<bool>("use_tof_sensor_board", false);
   std::string const tof_uart_port = pn.param<std::string>("tof_sensor_board_uart_port", "/dev/ttyACM0");
   uint32_t const tof_baudrate = static_cast<uint32_t>(pn.param<int>("tof_sensor_board_baudrate", 115200));
 
+  tof_transport const transport = resolve_tof_transport(pn);
+  bool const use_tof_sensor_board = transport == tof_transport::legacy_uart;
+
   handler handler{ n, pn };
 
-  // CAN setup
+  // CAN setup. Note the interface name: the SCB calls this bus CAN2 at 1 Mbit/s, but on
+  // the IPC it is can1. The two ends name the same physical bus differently.
   canif::queue_type can_queue;
   canif can{ can_queue };
-  can_filter filter[]{
-    { 0x100, CAN_SFF_MASK }, { 0x101, CAN_SFF_MASK }, { 0x103, CAN_SFF_MASK }, { 0x110, CAN_SFF_MASK },
-    { 0x111, CAN_SFF_MASK }, { 0x112, CAN_SFF_MASK }, { 0x113, CAN_SFF_MASK }, { 0x120, CAN_SFF_MASK },
-    { 0x130, CAN_SFF_MASK }, { 0x200, CAN_SFF_MASK }, { 0x201, CAN_SFF_MASK }, { 0x202, CAN_SFF_MASK },
-    { 0x204, CAN_SFF_MASK }, { 0x206, CAN_SFF_MASK }, { 0x207, CAN_SFF_MASK }, { 0x209, CAN_SFF_MASK },
-    { 0x20a, CAN_SFF_MASK }, { 0x20c, CAN_SFF_MASK }, { 0x20e, CAN_SFF_MASK }, { 0x210, CAN_SFF_MASK },
-    { 0x212, CAN_SFF_MASK }, { 0x213, CAN_SFF_MASK },
-  };
-  if (can.init("can1", filter, sizeof filter) < 0)
+  std::vector<can_filter> filter;
+  filter.reserve(lexxhard::can_ids::kTableCount + 2);
+  for (size_t i = 0; i < lexxhard::can_ids::kTableCount; ++i)
+  {
+    const auto& e = lexxhard::can_ids::kTable[i];
+    if (e.dir == lexxhard::can_ids::direction::rx)
+      filter.push_back({ e.id, CAN_SFF_MASK });
+  }
+
+  if (transport == tof_transport::scb_can)
+  {
+    uint32_t data_id = 0, health_id = 0;
+    if (!read_tof_can_ids(pn, data_id, health_id))
+    {
+      // Deliberately fatal rather than falling back to disabled. A configuration that
+      // claims the feature is on while nothing is detecting anything is the worst
+      // possible outcome for an obstacle sensor.
+      return 1;
+    }
+    filter.push_back({ data_id, CAN_SFF_MASK });
+    filter.push_back({ health_id, CAN_SFF_MASK });
+    handler.enable_tof_can(data_id, health_id, monotonic_ms());
+    ROS_INFO("ToF transport: scb_can, data id 0x%03x, health id 0x%03x", data_id, health_id);
+  }
+  else
+  {
+    ROS_INFO("ToF transport: %s", transport == tof_transport::legacy_uart ? "legacy_uart" : "disabled");
+  }
+
+  if (can.init("can1", filter.data(), filter.size() * sizeof(can_filter)) < 0)
   {
     return -1;
   }
@@ -168,6 +294,9 @@ int main(int argc, char* argv[])
       return -1;
     }
   }
+
+  uint64_t last_tof_poll_ms = monotonic_ms();
+  constexpr uint64_t tof_poll_interval_ms = 100;
 
   // Start I/O threads
   std::atomic<bool> running{ true };
@@ -190,13 +319,23 @@ int main(int argc, char* argv[])
     can_frame frame;
     while (can_queue.pop(frame))
     {
-      handler.handle_can(frame);
+      handler.handle_can(frame, monotonic_ms());
     }
 
     std::vector<uint8_t> packet;
     while (uart_queue.pop(packet))
     {
       handler.handle_uart(packet);
+    }
+
+    // The watchdog has to run whether or not frames are arriving; a silent source is
+    // precisely the case consume() can never see. Throttled because the surrounding loop
+    // does not rate limit itself.
+    uint64_t const now = monotonic_ms();
+    if (now - last_tof_poll_ms >= tof_poll_interval_ms)
+    {
+      last_tof_poll_ms = now;
+      handler.poll_tof(now);
     }
 
     ros::spinOnce();

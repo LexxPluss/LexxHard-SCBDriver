@@ -23,6 +23,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "can_ids.hpp"
+
 #include "devif.hpp"
 #include "sender_dfu.hpp"
 
@@ -35,7 +37,7 @@ void sender_dfu::handle(const std_msgs::UInt8MultiArray::ConstPtr& msg) const
 {
   static constexpr auto len{ 8 };
   can_frame frame{
-    .can_id{ 0x20d },
+    .can_id{ lexxhard::can_ids::DFU_TX },
     .can_dlc{ len },
   };
   std::copy_n(std::begin(msg->data), len, std::begin(frame.data));

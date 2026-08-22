@@ -2,8 +2,11 @@ name: CI
 on:
   push:
     branches: [ main ]
+  # Deliberately NOT filtered to main. Filtering it meant no job ran on a pull request into
+  # any other base, so a stacked branch could carry unformatted sources and uncompiled tests
+  # all the way to the merge into main, where the gate would then fail on content nobody in
+  # that pull request had touched.
   pull_request:
-    branches: [ main ]
 jobs:
   style-check:
     runs-on: ubuntu-22.04
@@ -49,3 +52,15 @@ jobs:
       run: |
         cd util/workspace
         docker compose run --rm rosbuild
+    # catkin_make's default target is `all`, and catkin_add_gtest marks its targets
+    # EXCLUDE_FROM_ALL, so the step above never compiles a single line of test code. Without
+    # this step a syntax error in a test file is a green build.
+    #
+    # catkin_test_results is not optional. `catkin_make run_tests_scbdriver` writes the gtest
+    # XML and exits 0 even when assertions failed, so on its own it would run the tests
+    # without ever detecting a red one -- a quieter version of the same hole.
+    - name: Run unit tests
+      run: |
+        cd util/workspace
+        docker compose run --rm rosbuild bash -c \
+          "source /opt/ros/noetic/setup.bash && catkin_make run_tests_scbdriver && catkin_test_results build/test_results --verbose"
