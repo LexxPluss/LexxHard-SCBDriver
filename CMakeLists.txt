@@ -47,6 +47,7 @@ add_message_files(
   LinearActuatorServiceResponse.msg
   PositionGuideVision.msg
   BoardTemperatures.msg
+  CliffTofSafetyHealth.msg
 )
 
 add_service_files(
@@ -150,4 +151,14 @@ if(CATKIN_ENABLE_TESTING)
   target_include_directories(test_tof_grid_assembler PRIVATE src test)
   target_link_libraries(test_tof_grid_assembler ${catkin_LIBRARIES})
   add_dependencies(test_tof_grid_assembler ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+  # Specification test for the cliff safety-health message. It asserts against the
+  # generated header rather than the .msg text, so message generation, the constant
+  # block and the field types are covered together, and it carries the reference
+  # readiness mapping that the future publisher must agree with.
+  catkin_add_gtest(test_cliff_tof_safety_health test/test_cliff_tof_safety_health.cpp)
+  target_compile_definitions(test_cliff_tof_safety_health
+    PRIVATE PACKAGE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_libraries(test_cliff_tof_safety_health ${catkin_LIBRARIES})
+  add_dependencies(test_cliff_tof_safety_health ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 endif()
