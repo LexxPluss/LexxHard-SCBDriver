@@ -40,6 +40,7 @@
 #include "receiver_gpio.hpp"
 #include "receiver_tug_encoder.hpp"
 #include "receiver_tof.hpp"
+#include "receiver_cliff.hpp"
 #include "can_ids.hpp"
 #include "tof_can_config.hpp"
 #include <chrono>
@@ -48,11 +49,43 @@
 namespace
 {
 
+// SCBDriver owns CAN ingress and frame validation in this change, but not the ROS/readiness
+// state machine. Keep that boundary visible in production: accepted facts are decoded and
+// observable in debug logs, malformed frames are warned, and nothing is published as a ROS
+// safety claim. The future adapter must replace this sink rather than duplicate decoding.
+class cliff_diagnostics final : public lexxhard::receiver_cliff_sink
+{
+public:
+  void on_measurement(const tof_cliff_frame::measurement& value) override
+  {
+    ROS_DEBUG_THROTTLE(10.0, "cliff measurement decoded: source=%u epoch=%u cycle=%u class=%u range=%u",
+                       static_cast<unsigned>(value.source_id), static_cast<unsigned>(value.mapping_epoch),
+                       static_cast<unsigned>(value.cycle_seq), static_cast<unsigned>(value.cls),
+                       static_cast<unsigned>(value.range_mm));
+  }
+
+  void on_health(const tof_cliff_frame::health& value) override
+  {
+    ROS_DEBUG_THROTTLE(10.0, "cliff health decoded: epoch=%u seq=%u mapping=%u flags=0x%x",
+                       static_cast<unsigned>(value.mapping_epoch), static_cast<unsigned>(value.health_seq),
+                       static_cast<unsigned>(value.mapping_state), static_cast<unsigned>(value.flags));
+  }
+
+  void on_rejection(uint32_t can_id, tof_cliff_contract::verdict reason) override
+  {
+    // Rejections should be rare and each is a distinct protocol fact. Do not share one
+    // throttle timestamp across measurement and health: that would let the first bad frame
+    // hide a different rejection on the other identifier.
+    ROS_WARN("rejected cliff CAN frame 0x%03x: contract verdict %u", can_id, static_cast<unsigned>(reason));
+  }
+};
+
 class handler
 {
 public:
   handler(ros::NodeHandle& n, ros::NodeHandle& pn)
-    : actuator{ n, pn }
+    : cliff{ cliff_log }
+    , actuator{ n, pn }
     , bmu{ n }
     , board{ n }
     , dfu{ n }
@@ -84,6 +117,8 @@ public:
       tof.handle_can(frame, now_ms);
       return;
     }
+    if (lexxhard::route_cliff_frame(frame, cliff))
+      return;
     // Routed through the shared table rather than a switch on literals, so an
     // identifier cannot be in the receive filter without also having a handler.
     switch (lexxhard::can_ids::route(frame.can_id))
@@ -129,6 +164,8 @@ public:
 private:
   std::optional<uint32_t> tof_data_can_id;
   std::optional<uint32_t> tof_health_can_id;
+  cliff_diagnostics cliff_log;
+  lexxhard::receiver_cliff cliff;
   receiver_actuator actuator;
   receiver_bmu bmu;
   receiver_board board;

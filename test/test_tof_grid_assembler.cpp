@@ -530,11 +530,14 @@ TEST(TofCanConfig, AssignedDefaultsAreValidAndRegistered)
   EXPECT_EQ(ids::TOF_GRID_DATA, out.data_id);
   EXPECT_EQ(ids::TOF_GRID_HEALTH, out.health_id);
   EXPECT_NE(ids::TOF_GRID_DATA, ids::TOF_GRID_HEALTH);
-  EXPECT_NE(ids::TOF_GRID_DATA, ids::TOF_DROP_SENSE_RESERVED);
-  EXPECT_NE(ids::TOF_GRID_HEALTH, ids::TOF_DROP_SENSE_RESERVED);
+  EXPECT_NE(ids::TOF_GRID_DATA, ids::TOF_CLIFF_MEASUREMENT);
+  EXPECT_NE(ids::TOF_GRID_HEALTH, ids::TOF_CLIFF_MEASUREMENT);
+  EXPECT_NE(ids::TOF_GRID_DATA, ids::TOF_CLIFF_HEALTH);
+  EXPECT_NE(ids::TOF_GRID_HEALTH, ids::TOF_CLIFF_HEALTH);
   EXPECT_LE(ids::TOF_GRID_DATA, 0x7ffu);
   EXPECT_LE(ids::TOF_GRID_HEALTH, 0x7ffu);
-  EXPECT_LE(ids::TOF_DROP_SENSE_RESERVED, 0x7ffu);
+  EXPECT_LE(ids::TOF_CLIFF_MEASUREMENT, 0x7ffu);
+  EXPECT_LE(ids::TOF_CLIFF_HEALTH, 0x7ffu);
 }
 
 // Swapping the pair would make this driver parse health frames as data; each value is
@@ -544,13 +547,16 @@ TEST(TofCanConfig, RejectsRoleSwappedDefaults)
   EXPECT_NE("", validate(lexxhard::TOF_GRID_HEALTH_ID, lexxhard::TOF_GRID_DATA_ID));
 }
 
-// 0x216 is reserved for the drop-sense frame whose contract does not exist yet; it is
-// registered precisely so that nothing — including a ToF override — can take it.
-TEST(TofCanConfig, RejectsTheReservedDropSenseIdentifier)
+// The cliff pair now has a pinned contract and a production route. It remains unavailable
+// to grid overrides: otherwise the early grid branch in receiver.cpp would steal a cliff
+// frame before the cliff decoder could validate it.
+TEST(TofCanConfig, RejectsTheCliffIdentifiers)
 {
-  const int reserved = static_cast<int>(lexxhard::can_ids::TOF_DROP_SENSE_RESERVED);
-  EXPECT_NE("", validate(reserved, 0x2a1));
-  EXPECT_NE("", validate(0x2a0, reserved));
+  for (uint32_t cliff : { lexxhard::can_ids::TOF_CLIFF_MEASUREMENT, lexxhard::can_ids::TOF_CLIFF_HEALTH })
+  {
+    EXPECT_NE("", validate(static_cast<int>(cliff), 0x2a1));
+    EXPECT_NE("", validate(0x2a0, static_cast<int>(cliff)));
+  }
 }
 
 // The override parameters are atomic as a pair, and "present but unparseable" counts as
@@ -633,7 +639,7 @@ TEST(TofCanConfig, EveryReceivedIdentifierHasAHandler)
     EXPECT_NE(ids::owner::none, e.who) << "0x" << std::hex << e.id << " is filtered but has no owner";
     EXPECT_EQ(e.who, ids::route(e.id)) << "0x" << std::hex << e.id << " routes elsewhere";
   }
-  EXPECT_EQ(22u, rx) << "receive filter size changed; confirm the dispatch was updated too";
+  EXPECT_EQ(24u, rx) << "receive filter size changed; confirm the dispatch was updated too";
 }
 
 // A transmitted identifier must never be routed to a receiver: it would mean this driver
