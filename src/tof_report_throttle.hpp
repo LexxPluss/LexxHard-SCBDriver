@@ -44,17 +44,17 @@ template <size_t N>
 class report_throttle
 {
 public:
-  explicit report_throttle(uint32_t interval_ms) : interval_ms_{ interval_ms }
+  explicit report_throttle(uint64_t interval_ms) : interval_ms_{ interval_ms }
   {
   }
 
   // True when this slot is due to report. Each slot keeps its own clock.
-  bool should_report(size_t slot, uint32_t now_ms)
+  bool should_report(size_t slot, uint64_t now_ms)
   {
     if (slot >= N)
       return false;
     auto& last = last_ms_[slot];
-    if (last && static_cast<uint32_t>(now_ms - *last) < interval_ms_)
+    if (last && now_ms - *last < interval_ms_)
       return false;
     last = now_ms;
     return true;
@@ -69,8 +69,8 @@ public:
   }
 
 private:
-  uint32_t interval_ms_;
-  std::array<std::optional<uint32_t>, N> last_ms_{};
+  uint64_t interval_ms_;
+  std::array<std::optional<uint64_t>, N> last_ms_{};
 };
 
 }  // namespace lexxhard

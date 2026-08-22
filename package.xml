@@ -41,6 +41,11 @@
   <exec_depend>roscpp</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
+  <!-- The gtest suites are built by catkin_add_gtest. Declared so an environment rebuilt
+       through rosdep gets the dependency; the build image already carries it, which is why
+       its absence went unnoticed. rosunit is deliberately not listed: nothing here uses
+       rostest, and a declared dependency nobody needs is its own kind of noise. -->
+  <test_depend>gtest</test_depend>
   <export>
   </export>
 </package>
