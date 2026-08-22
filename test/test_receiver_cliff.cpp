@@ -10,9 +10,18 @@
 // No ROS publisher, cycle state machine, watchdog or readiness decision is present here.
 // The measurement payloads below were printed by firmware 3.6.0-102-g17fa922 from a real
 // VL53L4CX on dasher1; the health payload was captured from can1 on the same robot. The
-// firmware and this decoder both pinned contract fb94706a... and artefact db9cae64....
-// The flashed full-slot DFU artefact was D1_PACK.test.bin, SHA-256
+// flashed full-slot DFU artefact was D1_PACK.test.bin, SHA-256
 // 92da8a500baa28e596ef5e399dc3c8cb076b1659c89aea6ead077f836b48a7eb.
+//
+// TWO ARTEFACT IDENTITIES, AND THE DIFFERENCE IS NOT IN THESE BYTES.
+//   at capture time : contract fb94706a..., artefact db9cae64...
+//   this decoder    : contract fb94706a..., artefact 3db018e9...
+// The contract SHA is the same one, so the payloads below still describe the same wire format
+// and are unchanged from what the robot produced. Only the artefact-set identity moved, and only
+// because the generator's clang-format guard moved to the first line of the emitted headers --
+// no vector, encoding, status-table entry or payload byte differs. The old identity is kept here
+// rather than overwritten because it is what the capture was taken against, and a provenance note
+// that silently adopts today's identity stops being provenance.
 
 #include <gtest/gtest.h>
 
@@ -98,7 +107,7 @@ TEST(ReceiverCliffRegistry, BothContractIdentifiersAreReceivedAndRoutedExactlyOn
 TEST(ReceiverCliffRegistry, ContractIdentityMatchesTheHardwareCapture)
 {
   EXPECT_STREQ("fb94706a4d2488aa9acdc7c7defcd7fac92379cba01964ab31f949fa50955188", ctr::kContractSha256);
-  EXPECT_STREQ("db9cae649df6de64d78a16576de475ed605423d443bb2c3a31f2adfe0b426af2", ctr::kArtefactSetId);
+  EXPECT_STREQ("3db018e9f0be3ae85a295240a8314fff97491b587ec909021b8e478745caf9aa", ctr::kArtefactSetId);
   EXPECT_TRUE(ctr::kReleaseForbidden);
 }
 

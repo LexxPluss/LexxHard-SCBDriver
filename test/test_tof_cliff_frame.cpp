@@ -68,7 +68,7 @@ TEST(TofCliffFrame, ContractAndArtefactPins)
   // The contract SHA says which contract; this says which generated artefacts. Pinned
   // separately because the generator has twice changed what it emits while the contract
   // text -- and so its SHA -- stood still.
-  EXPECT_STREQ("db9cae649df6de64d78a16576de475ed605423d443bb2c3a31f2adfe0b426af2", ctr::kArtefactSetId);
+  EXPECT_STREQ("3db018e9f0be3ae85a295240a8314fff97491b587ec909021b8e478745caf9aa", ctr::kArtefactSetId);
   // Asserted rather than merely present: this revision is not releasable, and the day
   // someone flips it must show up in a diff on both sides.
   EXPECT_TRUE(ctr::kReleaseForbidden);
